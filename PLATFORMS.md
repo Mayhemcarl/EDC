@@ -14,7 +14,19 @@ Este proyecto usa Firebase Realtime Database para gestionar alumnos, clases agen
 ## 2) Web
 
 1. Actualiza la configuración de Firebase dentro de `app.js` con los datos de tu proyecto.
-2. Publica la web en un hosting compatible (Firebase Hosting o similar).
+2. En la consola de Firebase, habilita **Realtime Database** con el modo de producción y ajusta las reglas.
+3. La estructura esperada en Realtime Database es:
+   - `students/{id}`
+   - `weekly_enrollments/{weekKey}`
+   - `trial_requests/{id}`
+   - `meta/system`
+4. Publica la web con Firebase Hosting:
+   ```bash
+   npm install -g firebase-tools
+   firebase login
+   firebase use --add
+   firebase deploy
+   ```
 
 ## 3) Android
 

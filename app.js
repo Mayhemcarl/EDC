@@ -1,14 +1,23 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-const SUPABASE_URL = "https://your-project.supabase.co";
-const SUPABASE_ANON_KEY = "your-anon-key";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const FIREBASE_CONFIG = {
+  apiKey: "your-api-key",
+  authDomain: "your-project.firebaseapp.com",
+  databaseURL: "https://your-project-default-rtdb.firebaseio.com",
+  projectId: "your-project",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "your-messaging-sender-id",
+  appId: "your-app-id"
+};
 
-// Tablas esperadas en Supabase:
-// - students (id, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride)
-// - weekly_enrollments (week_key, enrollments)
-// - trial_requests (id, nombre, disciplina, telefono, email, fecha)
-// - meta (id, lastWeeklyReset, lastPaymentResetMonth, lastPaymentOverdueMonth)
+let firebaseDb = null;
+
+// Nodos esperados en Firebase Realtime Database:
+// - students/{id} (id, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride)
+// - weekly_enrollments/{weekKey} (enrollments)
+// - trial_requests/{id} (id, nombre, disciplina, telefono, email, fecha)
+// - meta/system (id, lastWeeklyReset, lastPaymentResetMonth, lastPaymentOverdueMonth)
 
 const ADMIN_USER = "EDC2019";
 const ADMIN_CODE = "EDC2057";
@@ -85,13 +94,6 @@ const DEFAULT_STUDENTS = [
   { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
 ];
 
-const SUPABASE_TABLES = {
-  students: "students",
-  weeklyEnrollments: "weekly_enrollments",
-  trialRequests: "trial_requests",
-  meta: "meta"
-};
-
 const META_ID = "system";
 
 let currentUser = null;
@@ -100,8 +102,21 @@ let cachedStudents = [];
 let cachedTrialRequests = [];
 let cachedEnrollments = {};
 
-function isSupabaseConfigured() {
-  return !SUPABASE_URL.includes("your-project") && !SUPABASE_ANON_KEY.includes("your-anon-key");
+function isFirebaseConfigured() {
+  return Object.values(FIREBASE_CONFIG).every(value =>
+    typeof value === "string" && value.trim() !== "" && !value.includes("your-")
+  );
+}
+
+function getFirebaseDb() {
+  if (!isFirebaseConfigured()) {
+    return null;
+  }
+  if (!firebaseDb) {
+    const app = initializeApp(FIREBASE_CONFIG);
+    firebaseDb = getDatabase(app);
+  }
+  return firebaseDb;
 }
 
 function openModal(id) { document.getElementById(id).classList.add("open"); }
@@ -117,64 +132,56 @@ function openTrialModal() { openModal("trial-modal"); }
 function openLoginModal() { openModal("login-modal"); }
 
 async function loadStudents() {
-  if (!isSupabaseConfigured()) {
+  if (!isFirebaseConfigured()) {
     return [...DEFAULT_STUDENTS];
   }
-  const { data, error } = await supabase.from(SUPABASE_TABLES.students).select("*");
-  if (error) {
-    throw error;
-  }
-  if (!data || data.length === 0) {
+  const db = getFirebaseDb();
+  const snapshot = await get(ref(db, "students"));
+  const data = snapshot.exists() ? snapshot.val() : null;
+  if (!data || Object.keys(data).length === 0) {
     await saveStudents(DEFAULT_STUDENTS);
     return [...DEFAULT_STUDENTS];
   }
-  return data;
+  return Object.values(data);
 }
 
 async function saveStudents(students) {
-  if (!isSupabaseConfigured()) {
+  if (!isFirebaseConfigured()) {
     cachedStudents = [...students];
     return;
   }
-  const { error: deleteError } = await supabase.from(SUPABASE_TABLES.students).delete().neq("id", "");
-  if (deleteError) {
-    throw deleteError;
-  }
-  if (students.length > 0) {
-    const { error } = await supabase.from(SUPABASE_TABLES.students).insert(students);
-    if (error) {
-      throw error;
-    }
-  }
+  const db = getFirebaseDb();
+  const normalizedStudents = students.reduce((acc, student) => {
+    acc[student.id] = student;
+    return acc;
+  }, {});
+  await set(ref(db, "students"), normalizedStudents);
   cachedStudents = [...students];
 }
 
 async function loadTrialRequests() {
-  if (!isSupabaseConfigured()) {
+  if (!isFirebaseConfigured()) {
     return [];
   }
-  const { data, error } = await supabase.from(SUPABASE_TABLES.trialRequests).select("*");
-  if (error) {
-    throw error;
+  const db = getFirebaseDb();
+  const snapshot = await get(ref(db, "trial_requests"));
+  if (!snapshot.exists()) {
+    return [];
   }
-  return data || [];
+  return Object.values(snapshot.val());
 }
 
 async function saveTrialRequests(requests) {
-  if (!isSupabaseConfigured()) {
+  if (!isFirebaseConfigured()) {
     cachedTrialRequests = [...requests];
     return;
   }
-  const { error: deleteError } = await supabase.from(SUPABASE_TABLES.trialRequests).delete().neq("id", "");
-  if (deleteError) {
-    throw deleteError;
-  }
-  if (requests.length > 0) {
-    const { error } = await supabase.from(SUPABASE_TABLES.trialRequests).insert(requests);
-    if (error) {
-      throw error;
-    }
-  }
+  const db = getFirebaseDb();
+  const normalizedRequests = requests.reduce((acc, request) => {
+    acc[request.id] = request;
+    return acc;
+  }, {});
+  await set(ref(db, "trial_requests"), normalizedRequests);
   cachedTrialRequests = [...requests];
 }
 
@@ -196,32 +203,25 @@ function getWeekKey(date = new Date()) {
 
 async function getCurrentWeekEnrollments() {
   const weekKey = getWeekKey();
-  if (!isSupabaseConfigured()) {
+  if (!isFirebaseConfigured()) {
     return {};
   }
-  const { data, error } = await supabase
-    .from(SUPABASE_TABLES.weeklyEnrollments)
-    .select("enrollments")
-    .eq("week_key", weekKey)
-    .maybeSingle();
-  if (error) {
-    throw error;
+  const db = getFirebaseDb();
+  const snapshot = await get(ref(db, `weekly_enrollments/${weekKey}`));
+  if (!snapshot.exists()) {
+    return {};
   }
-  return data?.enrollments || {};
+  return snapshot.val().enrollments || {};
 }
 
 async function setCurrentWeekEnrollments(currentWeek) {
   const weekKey = getWeekKey();
-  if (!isSupabaseConfigured()) {
+  if (!isFirebaseConfigured()) {
     cachedEnrollments = currentWeek;
     return;
   }
-  const { error } = await supabase
-    .from(SUPABASE_TABLES.weeklyEnrollments)
-    .upsert({ week_key: weekKey, enrollments: currentWeek }, { onConflict: "week_key" });
-  if (error) {
-    throw error;
-  }
+  const db = getFirebaseDb();
+  await set(ref(db, `weekly_enrollments/${weekKey}`), { enrollments: currentWeek });
   cachedEnrollments = currentWeek;
 }
 
@@ -1211,30 +1211,23 @@ async function registrarNuevoAlumno(e) {
 }
 
 async function loadMeta() {
-  if (!isSupabaseConfigured()) {
+  if (!isFirebaseConfigured()) {
     return { id: META_ID };
   }
-  const { data, error } = await supabase
-    .from(SUPABASE_TABLES.meta)
-    .select("*")
-    .eq("id", META_ID)
-    .maybeSingle();
-  if (error) {
-    throw error;
+  const db = getFirebaseDb();
+  const snapshot = await get(ref(db, `meta/${META_ID}`));
+  if (!snapshot.exists()) {
+    return { id: META_ID };
   }
-  return data || { id: META_ID };
+  return snapshot.val();
 }
 
 async function saveMeta(meta) {
-  if (!isSupabaseConfigured()) {
+  if (!isFirebaseConfigured()) {
     return;
   }
-  const { error } = await supabase
-    .from(SUPABASE_TABLES.meta)
-    .upsert(meta, { onConflict: "id" });
-  if (error) {
-    throw error;
-  }
+  const db = getFirebaseDb();
+  await set(ref(db, `meta/${META_ID}`), meta);
 }
 
 async function runWeeklyReset(meta) {
@@ -1294,8 +1287,8 @@ async function init() {
   renderCards();
   updatePublicButtons();
   try {
-    if (!isSupabaseConfigured()) {
-      showToast("Configura Supabase para cargar datos reales.");
+    if (!isFirebaseConfigured()) {
+      showToast("Configura Firebase para cargar datos reales.");
     }
     await runMaintenance();
     cachedStudents = await loadStudents();
