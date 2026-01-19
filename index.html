@@ -674,7 +674,6 @@
                             <option value="Jiu Jitsu Kid">Jiu Jitsu Kid</option>
                             <option value="Judo">Judo</option>
                             <option value="Kick Boxing">Kick Boxing</option>
-                            <option value="YouTube">YouTube</option>
                         </select>
                     </div>
 
@@ -751,7 +750,7 @@
             { id: 15, day: 'Viernes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
             { id: 16, day: 'Sabado', time: '10:30', class: 'Jiu Jitsu Kid', instructor: 'Prof. Sebastian B', capacity: 25, enrolled: [] },
             { id: 17, day: 'Sabado', time: '11:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 18, day: 'Sabado', time: '11:30', class: 'OpenMAT', instructor: 'Equipo EDC', capacity: 40, enrolled: [], youtubeOnly: true, countsTowardLimit: false }
+            { id: 18, day: 'Sabado', time: '11:00', class: 'OpenMAT', instructor: 'Equipo EDC', capacity: 40, enrolled: [], openMatOnly: true, countsTowardLimit: false }
         ];
 
         const classesData = [
@@ -788,16 +787,14 @@
             "JJ_MUJERES": { label: "Plan mujeres Jiu-Jitsu", weeklyLimit: 3 },
             "JD_STD": { label: "Plan estándar Judo", weeklyLimit: 2 },
             "KB_STD": { label: "Plan estándar Kickboxing", weeklyLimit: 3 },
-            "PRUEBA": { label: "Clase de prueba", weeklyLimit: 1 },
-            "YT_OPENMAT": { label: "Plan YouTube OpenMAT", weeklyLimit: 0 }
+            "PRUEBA": { label: "Clase de prueba", weeklyLimit: 1 }
         };
 
         const DISCIPLINE_PLANS = {
             "Jiu Jitsu": ["JJ_STD", "JJ_FULL", "JJ_REBAJA", "JJ_MUJERES"],
             "Jiu Jitsu Kid": ["JJ_STD", "JJ_REBAJA"],
             "Judo": ["JD_STD"],
-            "Kick Boxing": ["KB_STD"],
-            "YouTube": ["YT_OPENMAT"]
+            "Kick Boxing": ["KB_STD"]
         };
 
         const DEFAULT_STUDENTS = [
@@ -1078,8 +1075,14 @@
             abrirCalendario();
         }
 
-        function isYoutubeStudent(user) {
-            return Boolean(user && (user.plan === 'YT_OPENMAT' || user.discipline === 'YouTube'));
+        function isOpenMatEligible(user) {
+            return Boolean(user && user.discipline === 'Jiu Jitsu');
+        }
+
+        function isClassRelevantForUser(cls, user) {
+            if (!user) return false;
+            if (cls.openMatOnly) return isOpenMatEligible(user);
+            return cls.class === user.discipline;
         }
 
         function updatePublicButtons() {
@@ -1266,9 +1269,12 @@
             const limitInfo = document.getElementById('limit-info');
             grid.innerHTML = '';
 
+            const dayOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
             const days = isAdmin
-                ? ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado']
-                : (isYoutubeStudent(currentUser) ? ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'] : ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']);
+                ? dayOrder
+                : dayOrder.filter(day =>
+                    scheduleData.some(cls => cls.day === day && isClassRelevantForUser(cls, currentUser))
+                );
 
             let userCount = 0;
             let planLimit = 0;
@@ -1308,7 +1314,7 @@
                 const dayClasses = scheduleData.filter(s => s.day === day);
                 const relevantClasses = isAdmin
                     ? dayClasses
-                    : dayClasses.filter(c => c.youtubeOnly ? isYoutubeStudent(currentUser) : c.class === currentUser.discipline);
+                    : dayClasses.filter(c => isClassRelevantForUser(c, currentUser));
 
                 relevantClasses.forEach(c => {
                     const isEnrolled = currentUser && c.enrolled.some(u => u.name === currentUser.name);
@@ -1415,8 +1421,8 @@
             const planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
             const currentCount = getUserWeeklyCount(currentUser);
 
-            if (cls.youtubeOnly && !isYoutubeStudent(currentUser)) {
-                showToast('Esta clase es exclusiva para alumnos de YouTube.');
+            if (cls.openMatOnly && !isOpenMatEligible(currentUser)) {
+                showToast('Esta clase es exclusiva para alumnos de Jiu Jitsu.');
                 return;
             }
 
