@@ -578,7 +578,16 @@ function cargarEstadoPagoUsuario() {
 }
 
 async function renderCalendar() {
-  await hydrateScheduleEnrollments();
+  try {
+    await hydrateScheduleEnrollments();
+  } catch (error) {
+    console.error("Error cargando clases para el calendario:", error);
+    scheduleData.forEach(cls => {
+      if (!Array.isArray(cls.enrolled)) {
+        cls.enrolled = [];
+      }
+    });
+  }
   const grid = document.getElementById("calendar-grid");
   const paymentBanner = document.getElementById("payment-banner");
   const limitInfo = document.getElementById("limit-info");
@@ -687,7 +696,16 @@ async function renderMisClases() {
   const list = document.getElementById("my-classes-list");
   const paymentBanner = document.getElementById("my-classes-payment");
   list.innerHTML = "";
-  await hydrateScheduleEnrollments();
+  try {
+    await hydrateScheduleEnrollments();
+  } catch (error) {
+    console.error("Error cargando clases del alumno:", error);
+    scheduleData.forEach(cls => {
+      if (!Array.isArray(cls.enrolled)) {
+        cls.enrolled = [];
+      }
+    });
+  }
 
   if (!currentUser || currentUser.role !== "member") {
     list.innerHTML = '<p class="muted">Solo disponible para alumnos.</p>';
