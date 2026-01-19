@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="es">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elemental Dojo - Sistema de Reservas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="icon" href="logo.png">
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+        import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+        import { getDatabase } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+      
+        const firebaseConfig = {
+  apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
+  authDomain: "elemental-dojo-curico.firebaseapp.com",
+  projectId: "elemental-dojo-curico",
+  storageBucket: "elemental-dojo-curico.firebasestorage.app",
+  messagingSenderId: "39532293146",
+  appId: "1:39532293146:web:0c44ace849aeed5f5335a3"
+};
+      
+        const app = initializeApp(firebaseConfig);
+      
+        // 🔴 ESTO ES LO QUE TE FALTABA
+        window.auth = getAuth(app);
+        window.db   = getDatabase(app);
+      </script>
+    <style>
+        :root {
+            --primary: #d32f2f;
+            --primary-dark: #b71c1c;
+            --secondary: #212121;
+            --background: #f5f5f5;
+            --white: #ffffff;
+            --accent: #ffa502;
+            --shadow: 0 4px 15px rgba(0,0,0,0.15);
+            --radius: 8px;
+            --transition: all 0.3s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Open Sans', sans-serif; background-color: var(--background); color: var(--text-color); }
+        h1, h2, h3 { font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase; }
+
+        /* --- Header --- */
+        header { 
+            background: var(--secondary); 
+            padding: 0.8rem 5%; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            color: var(--white); 
+            position: sticky; 
+            top: 0; 
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .logo-container { display: flex; align-items: center; gap: 15px; }
+        .logo-img { height: 70px; width: auto; object-fit: contain; }
+        .logo-text { font-size: 1.5rem; letter-spacing: 1px; line-height: 1; }
+        .logo-text span { color: var(--primary); }
+
+        .btn-login {
+            background: var(--white);
+            color: var(--secondary);
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            border:1px solid transparent;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        .btn-login:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* --- Hero --- */
+       .hero {
+          background: 
+            linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)),
+            url('https://drive.google.com/thumbnail?id=1TUcxYNm4PlYZasEDvOo1ixfkxgnGGhQx&sz=w2000');
+    
+          background-size: cover;
+          background-position: center;
+          height: 65vh;
+  
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          color: var(--white);
+          }
+        .hero h1 { font-size: 3rem; margin-bottom: 10px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        
+        .btn-hero {
+            padding: 15px 40px; font-size: 1.1rem; background-color: var(--primary); color: var(--white); border: none; border-radius: 4px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 5px 15px rgba(211, 47, 47, 0.4); transition: var(--transition); display: inline-flex; align-items: center; gap: 10px; margin-top: 20px;
+        }
+        .btn-hero:hover { background-color: var(--primary-dark); transform: translateY(-3px); }
+
+        /* --- Grid Clases --- */
+        main { padding: 4rem 5%; max-width: 1200px; margin: 0 auto; }
+        .section-title { text-align: center; margin-bottom: 3rem; }
+        .section-title h2 { font-size: 2.5rem; color: var(--secondary); border-bottom: 4px solid var(--primary); display: inline-block; padding-bottom: 5px; }
+
+        .classes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem; }
+        .class-card { 
+            background: var(--white); 
+            border-radius: var(--radius); 
+            overflow: hidden; 
+            box-shadow: var(--shadow); 
+            display: flex; 
+            flex-direction: column; 
+            transition: var(--transition);
+            cursor: pointer; 
+            position: relative;
+        }
+        .class-card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(0,0,0,0.2); }
+        
+        .card-img { height: 200px; background-size: cover; background-position: center; position: relative; }
+        .card-overlay { position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 15px; }
+        .card-title { font-size: 1.3rem; color: var(--white); text-shadow: 1px 1px 3px black; }
+        
+        .card-content { padding: 1.5rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .click-hint { margin-top: 15px; font-size: 0.8rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- TABLA HORARIOS (MEJORA ESTÉTICA) --- */
+        .timetable-container {
+            overflow-x: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-top: 20px;
+        }
+        .timetable {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        .timetable th {
+            background: var(--secondary);
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        .timetable td {
+            border: 1px solid #eee;
+            padding: 10px;
+            text-align: center;
+            vertical-align: top;
+            color: #555;
+            font-size: 0.9rem;
+        }
+        .tt-header { font-weight: bold; color: var(--secondary); display: block; margin-bottom: 4px; }
+        .tt-time { color: var(--primary); font-weight: 700; font-size: 0.95rem; display: block; }
+        .tt-prof { font-size: 0.8rem; color: #888; display: block; }
+        .tt-spots { font-size: 0.75rem; background: #f0f0f0; display: inline-block; padding: 2px 6px; border-radius: 4px; margin-top: 4px; }
+
+        /* --- CALENDARIO GRID --- */
+        .calendar-wrapper {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        @media (max-width: 768px) { .calendar-wrapper { grid-template-columns: 1fr; } }
+
+        .day-column {
+            background: #fafafa;
+            border-radius: 6px;
+            padding: 10px;
+            border: 1px solid #eee;
+        }
+        .day-header {
+            text-align: center;
+            font-weight: 800;
+            color: var(--secondary);
+            margin-bottom: 10px;
+            padding-bottom:5px;
+            border-bottom: 2px solid var(--primary);
+            text-transform: uppercase;
+        }
+        .cal-card {
+            background: white;
+            border-left: 4px solid var(--secondary);
+            padding: 8px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .cal-time { font-weight: bold; color: var(--primary); font-size: 0.9rem; }
+        .cal-class { color: #555; margin-bottom: 4px; }
+        .cal-attendees { font-size: 0.75rem; color: #777; margin-top: 5px; padding-top: 5px; border-top: 1px solid #eee; }
+
+        .cal-btn {
+            display: block;
+            width: 100%;
+            padding: 5px;
+            margin-top: 5px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .cal-btn.reserve { background: var(--success); color: white; }
+        .cal-btn.cancel { background: var(--danger); color: white; }
+        .cal-btn.disabled { background: #ccc; cursor: not-allowed; }
+
+        /* --- MODALS --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: var(--transition); }
+        .modal-overlay.open { opacity: 1; visibility: visible; }
+
+        .modal { background: var(--white); width: 95%; max-width: 1000px; border-radius: var(--radius); padding: 0; position: relative; transform: translateY(20px); transition: var(--transition); max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
+        .modal-overlay.open .modal { transform: translateY(0); }
+
+        .modal-header { background: var(--secondary); color: var(--white); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; }
+        .close-modal { background: none; border: none; color: var(--white); font-size: 1.5rem; cursor: pointer; }
+
+        .modal-body { padding: 2rem; }
+        
+        /* --- Plan Limits --- */
+        .plan-limit-info {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            text-align: center;
+            border: 1px solid #bbdefb;
+        }
+        .limit-number { font-weight: bold; font-size: 1.1rem; }
+
+        /* --- Formularios --- */
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn-submit { width: 100%; padding: 12px; background: var(--primary); color: var(--white); border: none; border-radius: 4px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
+        .btn-submit:disabled { background: #888; cursor: not-allowed; }
+
+        .plan-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; margin-left: 5px; color: white; text-transform: uppercase; }
+        .tag-basic { background: #90a4ae; }
+        .tag-premium { background: #ffa502; }
+        .tag-vip { background: #d32f2f; }
+
+        .toast { position: fixed; bottom: 30px; right: 30px; background: var(--secondary); color: var(--white); padding: 15px 25px; border-radius: 4px; transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 3000; border-left:5px solid var(--primary); }
+        .toast.show { transform: translateY(0); opacity: 1; }
+
+    </style>
+</head>
+<body>
+
+    <<header>
+      <div class="logo-container">
+      <img 
+      src="https://drive.google.com/thumbnail?id=1BiZrN_diA71WFLQ-f-psSomukbm2oR9M&sz=w500"
+      alt="Elemental Dojo"
+      class="logo-img"
+     >
+     <div class="logo-text">ELEMENTAL <span>DOJO</span></div>
+      </div>
+
+      <button class="btn-login" onclick="openLoginModal()">
+      <i class="fas fa-user-lock"></i> ACCESO
+      </button>
+    </header>
+
+    <div class="hero">
+        <h1>Reserva tu Clase</h1>
+        <p>Gestiona tu asistencia semanal según tu plan.</p>
+        <button class="btn-hero" onclick="openTrialModal()">
+            <i class="fas fa-calendar-plus"></i> PRIMERA CLASE GRATIS
+        </button>
+    </div>
+
+    <!-- GRID DE TARJETAS -->
+    <main>
+        <div class="section-title">
+            <h2>Nuestras Disciplinas</h2>
+            <p style="margin-top:10px; color:#666;">Haz clic para ver el horario de la disciplina</p>
+        </div>
+        <div class="classes-grid" id="classes-grid"></div>
+    </main>
+
+    <!-- MODAL 1: CLASE DE PRUEBA (CONEXIÓN A GOOGLE SHEET) -->
+    <div class="modal-overlay" id="trial-modal">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h3>Solicitar Prueba</h3>
+                <button class="close-modal" onclick="closeModal('trial-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="submitTrial(event)">
+                    <div class="form-group"><label>Nombre</label><input type="text" class="form-control" id="t-name" required></div>
+                    <div class="form-group"><label>Disciplina</label><select class="form-control" id="t-disc" required><option value="">Selecciona</option><option>Jiu Jitsu</option><option>Jiu Jitsu Kid</option><option>Kick Boxing</option><option>Judo</option></select></div>
+                    <div class="form-group"><label>Teléfono</label><input type="tel" class="form-control" id="t-phone" required></div>
+                    <div class="form-group"><label>Email</label><input type="email" class="form-control" id="t-email" required></div>
+                    <button type="submit" class="btn-submit" id="btn-submit-trial">ENVIAR SOLICITUD</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: LOGIN -->
+    <div class="modal-overlay" id="login-modal">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h3>Acceso al Sistema</h3>
+                <button class="close-modal" onclick="closeModal('login-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label>Tu Nombre</label>
+                        <input type="text" class="form-control" id="user-name" required placeholder="Ej. Carlos">
+                    </div>
+                   
+                    <div class="form-group">
+                        <label>Clave</label>
+                        <input type="password" class="form-control" id="access-code" required placeholder="Código">
+                        <small style="color:#888;">Miembros: 123321 | Admin: admin</small>
+                    </div>
+                    <button class="btn-submit">ENTRAR</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <section id="admin-panel" class="admin-panel hidden">
+
+        <h2>Panel de Administración</h2>
+      
+        <!-- =========================
+             RESUMEN GENERAL
+             ========================= -->
+        <div class="admin-card">
+          <h3>Resumen General</h3>
+          <p>Total alumnos: <b id="total-alumnos">0</b></p>
+          <ul id="disciplinas-count">
+            <!-- dinámico -->
+          </ul>
+        </div>
+      
+        <!-- =========================
+             CLASES AGENDADAS
+             ========================= -->
+        <div class="admin-card">
+          <h3>Clases Agendadas</h3>
+          <div id="admin-classes-list">
+            <p class="muted">Cargando clases...</p>
+          </div>
+        </div>
+      
+        <!-- =========================
+             LISTA DE ALUMNOS
+             ========================= -->
+        <div class="admin-card">
+          <h3>Estado de Alumnos</h3>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Disciplina</th>
+                <th>Plan</th>
+                <th>Estado Pago</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="admin-alumnos-table">
+              <!-- dinámico -->
+            </tbody>
+          </table>
+        </div>
+        <div id="user-menu" class="hidden">
+
+            <button onclick="abrirCalendario()">📅 Mis Clases</button>
+            <button onclick="abrirEstadoPago()">💳 Estado de Pago</button>
+            <button onclick="abrirPerfil()">👤 Mi Perfil</button>
+          
+            <button id="btnAdminPanel"
+                    class="hidden"
+                    onclick="abrirPanelAdmin()">⚙ Administración</button>
+          
+          </div>
+          <div id="calendar-modal" class="modal hidden">...</div>
+<div id="payment-modal" class="modal hidden">...</div>
+<div id="profile-modal" class="modal hidden">...</div>
+<div id="admin-modal" class="modal hidden">...</div>
+        <!-- =========================
+             REGISTRO NUEVO ALUMNO
+             ========================= -->
+        <div class="admin-card">
+          <h3>Registrar Nuevo Alumno</h3>
+      
+          <form id="form-new-alumno">
+            <input type="text" id="new-nombre" placeholder="Nombre completo" required />
+            <input type="tel" id="new-telefono" placeholder="Teléfono" required />
+            <input type="email" id="new-email" placeholder="Email" />
+      
+            <select id="new-plan" required>
+              <option value="">Seleccionar plan</option>
+              <option value="FULL">FULL</option>
+              <option value="2x">2 veces</option>
+              <option value="PRUEBA">Clase de prueba</option>
+            </select>
+      
+            <select id="new-disciplina" required>
+              <option value="">Disciplina</option>
+              <option value="Jiu Jitsu">Jiu Jitsu</option>
+              <option value="Judo">Judo</option>
+              <option value="Kick Boxing">Kick Boxing</option>
+            </select>
+      
+            <button type="submit">Registrar Alumno</button>
+          </form>
+      
+          <p id="new-alumno-result" class="muted"></p>
+        </div>
+      
+      </section>
+    <!-- MODAL 3: CALENDARIO (ADMIN/ALUMNO) -->
+    <div class="modal-overlay" id="calendar-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="calendar-title">Mi Horario</h3>
+                <button class="close-modal" onclick="closeModal('calendar-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                
+                <div id="limit-info" class="plan-limit-info" style="display:none;">
+                    Tu plan es <strong id="plan-name-display"></strong>. 
+                    Has agendado <span id="classes-count" class="limit-number">0</span> de <span id="max-classes" class="limit-number"></span> clases.
+                </div>
+
+                <div class="calendar-wrapper" id="calendar-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: HORARIOS PÚBLICOS (MEJOR ESTÉTICA TABLA) -->
+    <div class="modal-overlay" id="public-schedule-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="public-schedule-title">Horarios</h3>
+                <button class="close-modal" onclick="closeModal('public-schedule-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:20px; text-align:center; color:#666;">
+                    Revisa la disponibilidad para esta semana.
+                </p>
+                
+                <!-- ESTÉTICA MEJORADA: TABLA -->
+                <div class="timetable-container">
+                    <table class="timetable">
+                        <tbody id="public-schedule-table"></tbody>
+                    </table>
+                </div>
+                
+                <div style="text-align:center; margin-top:30px; padding-top:20px; border-top:1px solid #eee;">
+                    <p style="margin-bottom:15px; font-size:0.9rem;">¿Te interesa? Reserva tu lugar ahora.</p>
+                    <button class="btn-hero" style="font-size:0.9rem; padding:10px 30px;" onclick="closeModal('public-schedule-modal'); openLoginModal();">
+                        <i class="fas fa-user-check"></i> INICIAR SESIÓN PARA RESERVAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Mensaje</div>
+
+    <script>
+        // --- DATOS Y CONFIGURACIÓN ---
+        // URL DE TU WEB APP DE GOOGLE SHEETS
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzHj0JGyuEWjI7B9KiLVQRTzNe4avfTEYK6GShiLkngSYUmpXXgCVe0fHKNhulFIqTyw/exec'; 
+
+              const scheduleData = [
+            { id: 1, day: 'Lunes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 2, day: 'Lunes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 3, day: 'Lunes', time: '19:00', class: 'Judo', instructor: 'Sensei Pablo R', capacity: 25, enrolled: [] },
+            { id: 4, day: 'Lunes', time: '21:00', class: 'Kick Boxing', instructor: 'Coach Anibal R', capacity: 25, enrolled: [] },
+            { id: 5, day: 'Martes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 6, day: 'Martes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 7, day: 'Miércoles', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 8, day: 'Miércoles', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 9, day: 'Miércoles', time: '21:00', class: 'Kick Boxing', instructor: 'Coach Anibal R', capacity: 25, enrolled: [] },
+            { id: 10, day: 'Jueves', time: '19:00', class: 'Judo', instructor: 'Sensei Pablo R', capacity: 25, enrolled: [] },
+            { id: 11, day: 'Jueves', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 12, day: 'Jueves', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 13, day: 'Jueves', time: '21:00', class: 'Kick Boxing', instructor: 'Coach Anibal R', capacity: 25, enrolled: [] },
+            { id: 14, day: 'Viernes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 15, day: 'Viernes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 16, day: 'Sabado', time: '10:30', class: 'Jiu Jitsu Kid', instructor: 'Prof. Sebastian B', capacity: 25, enrolled: [] },
+            { id: 17, day: 'Sabado', time: '11:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] }
+        ];
+
+        // Tarjetas corregidas (IDs únicos y nombres coincidiendo)
+       const classesData = [
+           {
+             id: 1,
+            name: "Jiu Jitsu",
+            img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
+            instructor: "Prof. Carlos G"
+          },
+          {
+             id: 2,
+            name: "Jiu Jitsu Kid",
+            img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
+            instructor: "Prof. Sebastian B"
+          },
+          {
+            id: 3,
+            name: "Kick Boxing",
+            img: "https://drive.google.com/thumbnail?id=1FZThhq5kM1-CmAi4xlNUY-nrmPD5tzYW&sz=w1000",
+            instructor: "Coach Anibal R"
+          },
+          {
+            id: 4,
+            name: "Judo",
+            img: "https://drive.google.com/thumbnail?id=1Ls9eUpCTpi_B7EEyDi9q1DjefUryWWZO&sz=w1000",
+            instructor: "Sensei Pablo R"
+            }
+          ];
+
+
+        const PLAN_LIMITS = {
+            'Basic': 2,
+            'Premium': 4,
+            'VIP': 999 
+        };
+
+        let currentUser = null; 
+        let isAdmin = false;
+
+        // --- FUNCIONES ---
+        function openModal(id) { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+        function showToast(msg) { 
+            const t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show'); 
+            setTimeout(() => t.classList.remove('show'), 3000); 
+        }
+
+        function openTrialModal() { openModal('trial-modal'); }
+        function openLoginModal() { openModal('login-modal'); }
+
+        // Renderizar tarjetas
+        function renderCards() {
+            const container = document.getElementById('classes-grid');
+            container.innerHTML = '';
+            classesData.forEach(cls => {
+                container.innerHTML += `
+                    <div class="class-card" onclick="openPublicSchedule('${cls.name}')">
+                        <div class="card-img" style="background-image: url('${cls.img}')">
+                            <div class="card-overlay"><h3 class="card-title">${cls.name}</h3></div>
+                        </div>
+                        <div class="card-content">
+                            <div style="color:#555; font-weight:600;">Profesor: ${cls.instructor}</div>
+                            <div class="click-hint">Ver Horarios <i class="fas fa-chevron-down"></i></div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // HORARIOS PÚBLICOS
+        function openPublicSchedule(disciplineName) {
+            const tbody = document.getElementById('public-schedule-table');
+            document.getElementById('public-schedule-title').innerText = `Horarios: ${disciplineName}`;
+            tbody.innerHTML = '';
+
+            const filteredSchedule = scheduleData.filter(s => s.class === disciplineName);
+            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+
+            const times = [...new Set(filteredSchedule.map(s => s.time))].sort();
+
+            // Cabecera Días
+            let headerRow = '<tr><th>Hora</th>';
+            days.forEach(d => headerRow += `<th>${d}</th>`);
+            headerRow += '</tr>';
+            tbody.innerHTML = headerRow;
+
+            // Filas de Horarios
+            times.forEach(time => {
+                let row = `<tr><td><span class="tt-time">${time}</span></td>`;
+                days.forEach(day => {
+                    const cls = filteredSchedule.find(s => s.day === day && s.time === time);
+                    if (cls) {
+                        const spots = cls.capacity - cls.enrolled.length;
+                        row += `
+                            <td>
+                                <span class="tt-header">${cls.class}</span>
+                                <span class="tt-prof">${cls.instructor}</span>
+                                <span class="tt-spots">${spots} cupos</span>
+                            </td>
+                        `;
+                    } else {
+                        row += `<td>-</td>`;
+                    }
+                });
+                row += '</tr>';
+                tbody.innerHTML += row;
+            });
+
+            openModal('public-schedule-modal');
+        }
+
+        // --- SUBMIT PRUEBA ---
+        function submitTrial(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-trial');
+            const originalText = btn.innerText;
+            
+            btn.innerText = "ENVIANDO...";
+            btn.disabled = true;
+
+            const data = {
+                nombre: document.getElementById('t-name').value,
+                disciplina: document.getElementById('t-disc').value,
+                telefono: document.getElementById('t-phone').value,
+                email: document.getElementById('t-email').value,
+            };
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(data)
+            })
+            .then(response => response.text())
+            .then(text => {
+                try {
+                    const res = JSON.parse(text);
+                    if(res.result === "success") {
+                        showToast("Solicitud enviada correctamente");
+                        closeModal('trial-modal');
+                        document.querySelector('#trial-modal form').reset();
+                    } else {
+                        showToast("Error: " + (res.message || "Desconocido"));
+                    }
+                } catch(e) {
+                    showToast("Datos guardados (Respuesta no JSON)");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast("Error de conexión");
+            })
+            .finally(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            });
+        }
+        function abrirCalendario() {
+  document.getElementById('calendar-title').innerText =
+    currentUser.role === 'admin'
+      ? 'Calendario General'
+      : `Mi Calendario`;
+
+  renderCalendar();
+  openModal('calendar-modal');
+}
+function mostrarMenuUsuario() {
+  const menu = document.getElementById('user-menu');
+  menu.classList.remove('hidden');
+
+  // Botón admin
+  const btnAdmin = document.getElementById('btnAdminPanel');
+
+  if (currentUser.role === 'admin') {
+    btnAdmin.classList.remove('hidden');
+  } else {
+    btnAdmin.classList.add('hidden');
+  }
+}
+function cargarPerfilAlumno(uid) {
+  get(ref(db, `alumnos/${uid}`)).then(snapshot => {
+    if (!snapshot.exists()) {
+      showToast('Usuario no inscrito. Solo clase de prueba');
+      mostrarVistaPrueba();
+      return;
+    }
+
+    const data = snapshot.val();
+
+    currentUser = {
+      ...currentUser,
+      discipline: data.disciplina,
+      plan: data.plan,
+      paymentStatus: data.estadoPago
+    };
+
+    document.getElementById('calendar-title').innerText =
+      `Mi Calendario: ${data.disciplina}`;
+
+    document.getElementById('plan-name-display').innerText = data.plan;
+
+    mostrarMenuUsuario();
+  });
+}
+   // --- LOGIN ---
+   function handleLogin(e) {
+            e.preventDefault();
+            const name = document.getElementById('user-name').value;
+            const code = document.getElementById('access-code').value;
+
+            if (code === 'EDC2057') {
+                isAdmin = true;
+                currentUser = {
+  uid: 'admin',
+  name: 'EDC2019',
+  role: 'admin'
+};
+                document.getElementById('calendar-title').innerText = `Mi Panel`;
+                document.getElementById('limit-info').style.display = 'block';
+
+                mostrarMenuUsuario(); 
+                cargarPerfilAlumno(auth.currentUser.uid);;
+
+            } else if (code === '123321') {
+                isAdmin = false;
+                currentUser = {
+  uid: name,
+  name: name,
+  role: 'member'
+};
+                document.getElementById('calendar-title').innerText = `Mi Calendario: ${discipline}`;
+                document.getElementById('plan-name-display').innerText = plan;
+                document.getElementById('limit-info').style.display = 'block';
+                renderCalendar();
+                openModal('calendar-modal');
+            } else {
+                showToast('Clave incorrecta');
+            }
+        }
+function abrirEstadoPago() {
+  cargarEstadoPagoUsuario(); // función que ya tienes o debes implementar
+  openModal('payment-modal');
+}
+function abrirPerfil() {
+  document.getElementById('profile-name').innerText = currentUser.name;
+  document.getElementById('profile-plan').innerText = currentUser.plan;
+  openModal('profile-modal');
+}
+function abrirPanelAdmin() {
+  cargarResumenAdmin();
+  cargarClasesAdmin();
+  cargarAlumnosAdmin();
+  openModal('admin-modal');
+}     
+ // --- CALENDARIO ---
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+            let userCount = 0;
+            if (!isAdmin) {
+                userCount = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name)).length;
+                document.getElementById('classes-count').innerText = userCount;
+                document.getElementById('max-classes').innerText = PLAN_LIMITS[currentUser.plan];
+            }
+
+            days.forEach(day => {
+                let columnHTML = `<div class="day-column"><div class="day-header">${day}</div>`;
+                const dayClasses = scheduleData.filter(s => s.day === day);
+                const relevantClasses = isAdmin ? dayClasses : dayClasses.filter(c => c.class === currentUser.discipline);
+
+                relevantClasses.forEach(c => {
+                    const isEnrolled = c.enrolled.some(u => u.name === currentUser.name);
+                    const isFull = c.enrolled.length >= c.capacity;
+                    let btnClass = 'cal-btn reserve';
+                    let btnText = 'RESERVAR';
+                    let btnState = '';
+                    let canReserve = true;
+
+                    if (isAdmin) { canReserve = false; }
+                    else {
+                        if (isEnrolled) { btnText = 'CANCELAR'; btnClass = 'cal-btn cancel'; }
+                        else if (isFull) { btnText = 'LLENO'; btnClass = 'cal-btn disabled'; }
+                        else if (userCount >= PLAN_LIMITS[currentUser.plan]) {
+                            btnText = 'LÍMITE ALCANZADO'; btnClass = 'cal-btn disabled'; canReserve = false;
+                        }
+                    }
+
+                    if (!canReserve) btnState = 'disabled';
+
+                    let namesList = c.enrolled.map(u => u.name).join(', ');
+                    if (!namesList) namesList = 'Vacío';
+
+                    columnHTML += `
+                        <div class="cal-card">
+                            <div class="cal-time">${c.time}</div>
+                            <div class="cal-class">${c.class}</div>
+                            <div class="cal-attendees">${namesList}</div>
+                            ${!isAdmin ? `<button class="${btnClass}" ${btnState} onclick="toggleReservation(${c.id})">${btnText}</button>` : ''}
+                        </div>
+                    `;
+                });
+                if (relevantClasses.length === 0) columnHTML += `<div style="color:#ccc; font-size:0.8rem; text-align:center; padding:10px;">-</div>`;
+                columnHTML += `</div>`;
+                grid.innerHTML += columnHTML;
+            });
+        }
+
+        function toggleReservation(classId) {
+            const cls = scheduleData.find(c => c.id === classId);
+            const currentCount = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name)).length;
+            
+            if (cls.enrolled.some(u => u.name === currentUser.name)) {
+                cls.enrolled = cls.enrolled.filter(u => u.name !== currentUser.name);
+                showToast(`Cancelaste tu asistencia a ${cls.class}`);
+            } else {
+                if (currentCount >= PLAN_LIMITS[currentUser.plan]) {
+                    showToast(`¡Límite alcanzado! Tu plan solo permite ${PLAN_LIMITS[currentUser.plan]} clases.`);
+                    return;
+                }
+                if (cls.enrolled.length >= cls.capacity) {
+                    showToast('La clase está llena.');
+                    return;
+                }
+                cls.enrolled.push({ name: currentUser.name, plan: currentUser.plan });
+                showToast(`¡Reservado para ${cls.class}!`);
+            }
+            renderCalendar();
+        }
+
+        renderCards();
+
+    </script>
+</body>
+</html>
