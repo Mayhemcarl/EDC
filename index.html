@@ -331,6 +331,7 @@
 
         .hidden { display: none !important; }
         .muted { color: #888; font-size: 0.85rem; }
+        .experience-section { display: none; }
 
         /* --- User Menu --- */
         .user-menu {
@@ -408,7 +409,7 @@
             <div class="classes-grid" id="classes-grid"></div>
         </section>
 
-        <section>
+        <section class="experience-section">
             <div class="section-title">
                 <h2>Más Ítems para Tu Experiencia</h2>
                 <p>Sumamos más servicios para alumnos y administradores</p>
@@ -499,7 +500,7 @@
                     <div class="form-group">
                         <label>Clave</label>
                         <input type="password" class="form-control" id="access-code" required placeholder="Código">
-                        <small style="color:#888;">Miembros: 123321 | Admin: admin</small>
+                        <small style="color:#888;">Miembros: 123321 | Admin: EDC2019 / EDC2057</small>
                     </div>
                     <button class="btn-submit">ENTRAR</button>
                 </form>
@@ -675,6 +676,9 @@
 
     <script>
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzHj0JGyuEWjI7B9KiLVQRTzNe4avfTEYK6GShiLkngSYUmpXXgCVe0fHKNhulFIqTyw/exec';
+
+        const ADMIN_USER = 'EDC2019';
+        const ADMIN_CODE = 'EDC2057';
 
         const scheduleData = [
             { id: 1, day: 'Lunes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
@@ -919,12 +923,17 @@
             const name = document.getElementById('user-name').value.trim();
             const code = document.getElementById('access-code').value.trim();
 
-            if (code === 'admin') {
+            if (name === ADMIN_USER && code === ADMIN_CODE) {
                 isAdmin = true;
                 currentUser = { name: 'Administrador', role: 'admin' };
                 mostrarMenuUsuario();
                 closeModal('login-modal');
                 showToast('Bienvenido, admin');
+                return;
+            }
+
+            if (code === ADMIN_CODE || name === ADMIN_USER) {
+                showToast('Credenciales de administrador incorrectas');
                 return;
             }
 
