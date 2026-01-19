@@ -1603,6 +1603,7 @@
                 const dayClasses = scheduleData.filter(cls => {
                     if (cls.day !== day) return false;
                     if (discipline === 'OpenMAT') return cls.openMatOnly;
+                    if (discipline === 'Jiu Jitsu') return cls.class === discipline || cls.openMatOnly;
                     return cls.class === discipline;
                 });
                 if (dayClasses.length === 0) {
