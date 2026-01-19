@@ -311,6 +311,21 @@
             cursor: pointer;
             margin-right: 4px;
         }
+        .admin-inline {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .admin-inline input {
+            max-width: 80px;
+        }
+        .admin-helper {
+            display: block;
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 4px;
+        }
         .admin-weekly-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
         .admin-day-card {
             background: #fafafa;
@@ -611,6 +626,7 @@
                     <button class="btn-login" onclick="setAdminWeekDiscipline('Jiu Jitsu')">Jiu-Jitsu</button>
                     <button class="btn-login" onclick="setAdminWeekDiscipline('Judo')">Judo</button>
                     <button class="btn-login" onclick="setAdminWeekDiscipline('Kick Boxing')">Kickboxing</button>
+                    <button class="btn-login" onclick="setAdminWeekDiscipline('OpenMAT')">OpenMAT</button>
                 </div>
                 <div id="admin-weekly-plan">
                     <p class="muted">Cargando itinerario...</p>
@@ -636,6 +652,7 @@
                                 <th>Plan</th>
                                 <th>Clave</th>
                                 <th>Clases Semana</th>
+                                <th>Límite semanal</th>
                                 <th>Estado Pago</th>
                                 <th>Acción</th>
                             </tr>
@@ -749,7 +766,7 @@
             { id: 14, day: 'Viernes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
             { id: 15, day: 'Viernes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
             { id: 16, day: 'Sabado', time: '10:30', class: 'Jiu Jitsu Kid', instructor: 'Prof. Sebastian B', capacity: 25, enrolled: [] }, 
-            { id: 17, day: 'Sabado', time: '11:30', class: 'OpenMAT', insttor: 'Equipo EDC', capacity: 40, enrolled: [], openMatOnly: true, countsTowardLimit: false }
+            { id: 17, day: 'Sabado', time: '11:30', class: 'OpenMAT', instructor: 'Equipo EDC', capacity: 40, enrolled: [], openMatOnly: true, countsTowardLimit: false }
         ];
 
         const classesData = [
@@ -1079,6 +1096,14 @@
             return Boolean(user && user.discipline === 'Jiu Jitsu');
         }
 
+        function getWeeklyLimitForStudent(student) {
+            if (!student) return 0;
+            if (typeof student.weeklyLimitOverride === 'number') {
+                return Math.max(0, student.weeklyLimitOverride);
+            }
+            return PLAN_CONFIG[student.plan]?.weeklyLimit || 0;
+        }
+
         function isClassRelevantForUser(cls, user) {
             if (!user) return false;
             if (cls.openMatOnly) return isOpenMatEligible(user);
@@ -1281,11 +1306,15 @@
 
             if (!isAdmin && currentUser) {
                 userCount = getUserWeeklyCount(currentUser);
-                planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
+                planLimit = getWeeklyLimitForStudent(currentUser);
 
                 document.getElementById('classes-count').innerText = userCount;
                 document.getElementById('max-classes').innerText = planLimit;
-                document.getElementById('plan-name-display').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+                const planLabel = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+                const overrideTag = typeof currentUser.weeklyLimitOverride === 'number'
+                    ? ' (límite ajustado por admin)'
+                    : '';
+                document.getElementById('plan-name-display').innerText = `${planLabel}${overrideTag}`;
 
                 if (planLimit > 0) {
                     limitInfo.classList.remove('hidden');
@@ -1347,12 +1376,13 @@
 
                     let namesList = c.enrolled.map(u => u.name).join(', ');
                     if (!namesList) namesList = 'Vacío';
+                    const adminCountLabel = isAdmin ? ` (${c.enrolled.length})` : '';
 
                     columnHTML += `
                         <div class="cal-card">
                             <div class="cal-time">${c.time}</div>
                             <div class="cal-class">${c.class}</div>
-                            <div class="cal-attendees">${namesList}</div>
+                            <div class="cal-attendees">Alumnos${adminCountLabel}: ${namesList}</div>
                             ${!isAdmin ? `<button class="${btnClass}" ${btnState} onclick="toggleReservation(${c.id})">${btnText}</button>` : ''}
                         </div>
                     `;
@@ -1375,12 +1405,16 @@
             }
 
             const userEnrollments = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name));
-            const planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
+            const planLimit = getWeeklyLimitForStudent(currentUser);
             const limitInfo = document.querySelector('#my-classes-modal .plan-limit-info');
 
             document.getElementById('my-classes-count').innerText = getUserWeeklyCount(currentUser);
             document.getElementById('my-classes-max').innerText = planLimit;
-            document.getElementById('my-plan-name').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+            const planLabel = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+            const overrideTag = typeof currentUser.weeklyLimitOverride === 'number'
+                ? ' (límite ajustado por admin)'
+                : '';
+            document.getElementById('my-plan-name').innerText = `${planLabel}${overrideTag}`;
             if (limitInfo) {
                 limitInfo.classList.toggle('hidden', planLimit === 0);
             }
@@ -1418,7 +1452,7 @@
 
         function toggleReservation(classId) {
             const cls = scheduleData.find(c => c.id === classId);
-            const planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
+            const planLimit = getWeeklyLimitForStudent(currentUser);
             const currentCount = getUserWeeklyCount(currentUser);
 
             if (cls.openMatOnly && !isOpenMatEligible(currentUser)) {
@@ -1566,18 +1600,23 @@
                 dayCard.className = 'admin-day-card';
                 dayCard.innerHTML = `<h4>${day}</h4>`;
 
-                const dayClasses = scheduleData.filter(cls => cls.day === day && cls.class === discipline);
+                const dayClasses = scheduleData.filter(cls => {
+                    if (cls.day !== day) return false;
+                    if (discipline === 'OpenMAT') return cls.openMatOnly;
+                    return cls.class === discipline;
+                });
                 if (dayClasses.length === 0) {
                     dayCard.innerHTML += '<p class="muted">Sin clases</p>';
                 } else {
                     dayClasses.forEach(cls => {
                         const attendees = cls.enrolled.map(u => u.name).join(', ') || 'Sin alumnos';
+                        const attendeeCount = cls.enrolled.length;
                         const item = document.createElement('div');
                         item.className = 'admin-class-item';
                         item.innerHTML = `
                             <strong>${cls.time} - ${cls.class}</strong>
                             <span class="muted">${cls.instructor}</span><br>
-                            <span>Alumnos: ${attendees}</span>
+                            <span>Alumnos (${attendeeCount}): ${attendees}</span>
                         `;
                         dayCard.appendChild(item);
                     });
@@ -1670,6 +1709,10 @@
                 const classCount = Object.values(enrollments).filter(list =>
                     list.some(enrolled => enrolled.name === student.name)
                 ).length;
+                const planLimit = PLAN_CONFIG[student.plan]?.weeklyLimit || 0;
+                const overrideValue = typeof student.weeklyLimitOverride === 'number'
+                    ? student.weeklyLimitOverride
+                    : '';
 
                 const statusClass = student.paymentStatus === 'pagado' ? 'status-paid' : student.paymentStatus === 'pendiente' ? 'status-pending' : 'status-overdue';
                 const statusText = student.paymentStatus === 'pagado' ? 'Pagado' : student.paymentStatus === 'pendiente' ? 'Pendiente' : 'Vencido';
@@ -1682,6 +1725,13 @@
                     <td>${PLAN_CONFIG[student.plan]?.label || student.plan}</td>
                     <td><span class="admin-key-pill">${accessKey}</span></td>
                     <td>${classCount}</td>
+                    <td>
+                        <div class="admin-inline">
+                            <input type="number" min="0" class="form-control" id="limit-${student.id}" value="${overrideValue}">
+                            <button class="btn-login" onclick="actualizarLimiteSemanal('${student.id}')">Guardar</button>
+                        </div>
+                        <span class="admin-helper">Plan: ${planLimit} clases</span>
+                    </td>
                     <td><span class="status-pill ${statusClass}">${statusText}</span></td>
                     <td class="admin-actions">
                         <button class="btn-paid" onclick="actualizarPago('${student.id}', 'pagado')">Pagado</button>
@@ -1692,6 +1742,42 @@
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        function actualizarLimiteSemanal(studentId) {
+            const input = document.getElementById(`limit-${studentId}`);
+            if (!input) {
+                showToast('Campo de límite no encontrado.');
+                return;
+            }
+            const rawValue = input.value.trim();
+            const parsedValue = rawValue === '' ? null : Number(rawValue);
+            if (parsedValue !== null && (!Number.isFinite(parsedValue) || parsedValue < 0)) {
+                showToast('Ingresa un número válido.');
+                return;
+            }
+
+            const students = loadStudents();
+            const updated = students.map(student => {
+                if (student.id !== studentId) return student;
+                const nextData = { ...student };
+                if (parsedValue === null) {
+                    delete nextData.weeklyLimitOverride;
+                } else {
+                    nextData.weeklyLimitOverride = parsedValue;
+                }
+                return nextData;
+            });
+            saveStudents(updated);
+            if (currentUser && currentUser.id === studentId) {
+                if (parsedValue === null) {
+                    delete currentUser.weeklyLimitOverride;
+                } else {
+                    currentUser.weeklyLimitOverride = parsedValue;
+                }
+            }
+            cargarAlumnosAdmin();
+            showToast('Límite semanal actualizado.');
         }
 
         function eliminarAlumno(studentId) {
