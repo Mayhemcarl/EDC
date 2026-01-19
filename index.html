@@ -564,6 +564,22 @@
                     <p><strong>Plan:</strong> <span id="profile-plan">-</span></p>
                     <p><strong>Estado de pago:</strong> <span id="profile-payment">-</span></p>
                 </div>
+                <div class="info-card" style="margin-top:15px;">
+                    <h3><i class="fas fa-key"></i> Cambiar clave de acceso</h3>
+                    <p><strong>Clave actual:</strong> <span id="profile-access-code">-</span></p>
+                    <form id="form-update-access-code" onsubmit="actualizarClaveAcceso(event)">
+                        <div class="form-group">
+                            <label>Nueva clave</label>
+                            <input type="password" class="form-control" id="new-access-code" placeholder="Nueva clave" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Confirmar clave</label>
+                            <input type="password" class="form-control" id="confirm-access-code" placeholder="Repite la clave" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Actualizar clave</button>
+                    </form>
+                    <p class="muted" style="margin-top:10px;">Usa una clave única para evitar conflictos si hay otros alumnos con el mismo nombre.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -1002,9 +1018,9 @@
                 });
         }
 
-        function getStudentByName(name) {
+        function getStudentsByName(name) {
             const students = loadStudents();
-            return students.find(student => student.name.toLowerCase() === name.toLowerCase());
+            return students.filter(student => student.name.toLowerCase() === name.toLowerCase());
         }
 
         function handleLogin(e) {
@@ -1026,23 +1042,31 @@
                 return;
             }
 
-            const student = getStudentByName(name);
-            if (!student) {
+            const matchingStudents = getStudentsByName(name);
+            if (matchingStudents.length === 0) {
                 showToast('Alumno no encontrado. Verifica el nombre.');
                 return;
             }
 
             const normalizedCode = code.toLowerCase();
-            const nameKey = student.name.toLowerCase();
-            const accessKey = (student.accessCode || '').toLowerCase();
+            const nameKey = name.toLowerCase();
+            const matchedStudent = matchingStudents.find(student => {
+                const accessKey = (student.accessCode || '').toLowerCase();
+                return normalizedCode === nameKey || (accessKey && normalizedCode === accessKey);
+            });
 
-            if (!normalizedCode || (normalizedCode !== nameKey && normalizedCode !== accessKey)) {
+            if (matchingStudents.length > 1 && normalizedCode === nameKey) {
+                showToast('Hay alumnos con el mismo nombre. Usa tu clave de acceso para ingresar.');
+                return;
+            }
+
+            if (!matchedStudent || !normalizedCode) {
                 showToast('Clave incorrecta');
                 return;
             }
 
             isAdmin = false;
-            currentUser = { ...student, role: 'member' };
+            currentUser = { ...matchedStudent, role: 'member' };
             mostrarMenuUsuario();
             closeModal('login-modal');
             abrirCalendario();
@@ -1108,7 +1132,60 @@
             document.getElementById('profile-plan').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
             document.getElementById('profile-discipline').innerText = currentUser.discipline || '-';
             document.getElementById('profile-payment').innerText = currentUser.paymentStatus || '-';
+            document.getElementById('profile-access-code').innerText = currentUser.accessCode || currentUser.name;
+            const form = document.getElementById('form-update-access-code');
+            if (form) {
+                form.reset();
+            }
             openModal('profile-modal');
+        }
+
+        function actualizarClaveAcceso(event) {
+            event.preventDefault();
+            if (!currentUser || currentUser.role !== 'member') {
+                showToast('Solo disponible para alumnos.');
+                return;
+            }
+
+            const newCode = document.getElementById('new-access-code').value.trim();
+            const confirmCode = document.getElementById('confirm-access-code').value.trim();
+
+            if (!newCode || !confirmCode) {
+                showToast('Completa ambos campos.');
+                return;
+            }
+
+            if (newCode !== confirmCode) {
+                showToast('Las claves no coinciden.');
+                return;
+            }
+
+            const normalizedCode = newCode.toLowerCase();
+            if (normalizedCode === ADMIN_CODE.toLowerCase() || normalizedCode === ADMIN_USER.toLowerCase()) {
+                showToast('Esa clave está reservada. Usa otra.');
+                return;
+            }
+
+            const students = loadStudents();
+            const hasConflict = students.some(student =>
+                student.id !== currentUser.id &&
+                (student.accessCode || '').toLowerCase() === normalizedCode
+            );
+
+            if (hasConflict) {
+                showToast('La clave ya está en uso. Elige otra.');
+                return;
+            }
+
+            const updatedStudents = students.map(student =>
+                student.id === currentUser.id ? { ...student, accessCode: newCode } : student
+            );
+
+            saveStudents(updatedStudents);
+            currentUser.accessCode = newCode;
+            document.getElementById('profile-access-code').innerText = newCode;
+            document.getElementById('form-update-access-code').reset();
+            showToast('Clave actualizada correctamente.');
         }
 
         function abrirMisClases() {
