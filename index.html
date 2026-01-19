@@ -500,7 +500,7 @@
                     <div class="form-group">
                         <label>Clave</label>
                         <input type="password" class="form-control" id="access-code" required placeholder="Código">
-                        <small style="color:#888;">Miembros: 123321 | Admin: EDC2019 / EDC2057</small>
+                        <small style="color:#888;">Miembros: 123321 | Admin: nombre igual a clave (ej. EDC2019)</small>
                     </div>
                     <button class="btn-submit">ENTRAR</button>
                 </form>
@@ -522,6 +522,24 @@
                     Has agendado <span id="classes-count" class="limit-number">0</span> de <span id="max-classes" class="limit-number"></span> clases.
                 </div>
                 <div class="calendar-wrapper" id="calendar-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: MIS CLASES -->
+    <div class="modal-overlay" id="my-classes-modal">
+        <div class="modal" style="max-width:700px;">
+            <div class="modal-header">
+                <h3>Mis Clases</h3>
+                <button class="close-modal" onclick="closeModal('my-classes-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="my-classes-payment" class="payment-banner hidden"></div>
+                <div class="plan-limit-info">
+                    Tu plan es <strong id="my-plan-name"></strong>.
+                    Has agendado <span id="my-classes-count" class="limit-number">0</span> de <span id="my-classes-max" class="limit-number"></span> clases.
+                </div>
+                <div id="my-classes-list"></div>
             </div>
         </div>
     </div>
@@ -578,6 +596,21 @@
                         <h3>Clases Agendadas</h3>
                         <div id="admin-classes-list">
                             <p class="muted">Cargando clases...</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-card">
+                        <h3>Clases por Disciplina</h3>
+                        <div id="admin-disciplines-classes">
+                            <p class="muted">Cargando resumen...</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-card">
+                        <h3>Alumnos con Pago Pendiente/Vencido</h3>
+                        <p>Total no pago: <b id="admin-unpaid-total">0</b></p>
+                        <div id="admin-unpaid-list">
+                            <p class="muted">Cargando alumnos...</p>
                         </div>
                     </div>
                 </div>
@@ -667,9 +700,10 @@
     <div id="toast" class="toast">Mensaje</div>
 
     <div id="user-menu" class="user-menu hidden">
-        <button onclick="abrirCalendario()"><i class="fas fa-calendar"></i> Mis Clases</button>
-        <button onclick="abrirEstadoPago()"><i class="fas fa-credit-card"></i> Estado de Pago</button>
-        <button onclick="abrirPerfil()"><i class="fas fa-user"></i> Mi Perfil</button>
+        <button id="btnMyClasses" onclick="abrirMisClases()"><i class="fas fa-book"></i> Clases</button>
+        <button id="btnSchedule" onclick="abrirCalendario()"><i class="fas fa-calendar-plus"></i> Agendar</button>
+        <button id="btnPaymentStatus" onclick="abrirEstadoPago()"><i class="fas fa-credit-card"></i> Estado de Pago</button>
+        <button id="btnProfile" onclick="abrirPerfil()"><i class="fas fa-user"></i> Mi Perfil</button>
         <button id="btnAdminPanel" class="hidden" onclick="abrirPanelAdmin()"><i class="fas fa-gear"></i> Admin</button>
         <button onclick="cerrarSesion()"><i class="fas fa-arrow-right-from-bracket"></i> Salir</button>
     </div>
@@ -923,7 +957,7 @@
             const name = document.getElementById('user-name').value.trim();
             const code = document.getElementById('access-code').value.trim();
 
-            if (name === ADMIN_USER && code === ADMIN_CODE) {
+            if (name === ADMIN_USER && (code === ADMIN_CODE || code === name)) {
                 isAdmin = true;
                 currentUser = { name: 'Administrador', role: 'admin' };
                 mostrarMenuUsuario();
@@ -960,10 +994,22 @@
             menu.classList.remove('hidden');
 
             const btnAdmin = document.getElementById('btnAdminPanel');
+            const btnPayment = document.getElementById('btnPaymentStatus');
+            const btnProfile = document.getElementById('btnProfile');
+            const btnMyClasses = document.getElementById('btnMyClasses');
+            const btnSchedule = document.getElementById('btnSchedule');
             if (currentUser.role === 'admin') {
                 btnAdmin.classList.remove('hidden');
+                btnPayment.classList.add('hidden');
+                btnProfile.classList.add('hidden');
+                btnMyClasses.classList.add('hidden');
+                btnSchedule.classList.add('hidden');
             } else {
                 btnAdmin.classList.add('hidden');
+                btnPayment.classList.remove('hidden');
+                btnProfile.classList.remove('hidden');
+                btnMyClasses.classList.remove('hidden');
+                btnSchedule.classList.remove('hidden');
             }
         }
 
@@ -978,7 +1024,7 @@
             document.getElementById('calendar-title').innerText =
                 currentUser.role === 'admin'
                     ? 'Calendario General'
-                    : `Mi Calendario: ${currentUser.discipline}`;
+                    : `Agendar clases: ${currentUser.discipline}`;
 
             renderCalendar();
             openModal('calendar-modal');
@@ -997,9 +1043,16 @@
             openModal('profile-modal');
         }
 
+        function abrirMisClases() {
+            renderMisClases();
+            openModal('my-classes-modal');
+        }
+
         function abrirPanelAdmin() {
             cargarResumenAdmin();
             cargarClasesAdmin();
+            cargarClasesPorDisciplinaAdmin();
+            cargarAlumnosNoPagadosAdmin();
             cargarAlumnosAdmin();
             openModal('admin-modal');
         }
@@ -1113,6 +1166,55 @@
             });
         }
 
+        function renderMisClases() {
+            const list = document.getElementById('my-classes-list');
+            const paymentBanner = document.getElementById('my-classes-payment');
+            list.innerHTML = '';
+            hydrateScheduleEnrollments();
+
+            if (!currentUser || currentUser.role !== 'member') {
+                list.innerHTML = '<p class="muted">Solo disponible para alumnos.</p>';
+                return;
+            }
+
+            const userEnrollments = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name));
+            const planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
+
+            document.getElementById('my-classes-count').innerText = userEnrollments.length;
+            document.getElementById('my-classes-max').innerText = planLimit;
+            document.getElementById('my-plan-name').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+
+            if (currentUser.paymentStatus === 'pendiente') {
+                paymentBanner.classList.remove('hidden');
+                paymentBanner.classList.remove('is-overdue');
+                paymentBanner.innerText = 'Tienes un pago pendiente. Regulariza para evitar bloqueos de reserva.';
+            } else if (currentUser.paymentStatus === 'vencido') {
+                paymentBanner.classList.remove('hidden');
+                paymentBanner.classList.add('is-overdue');
+                paymentBanner.innerText = 'Pago vencido: no podrás agendar nuevas clases hasta regularizar.';
+            } else {
+                paymentBanner.classList.add('hidden');
+            }
+
+            if (userEnrollments.length === 0) {
+                list.innerHTML = '<p class="muted">Aún no tienes clases agendadas.</p>';
+                return;
+            }
+
+            userEnrollments.forEach(cls => {
+                const item = document.createElement('div');
+                item.className = 'info-card';
+                item.style.marginBottom = '10px';
+                item.innerHTML = `
+                    <h3>${cls.class}</h3>
+                    <p><strong>Día:</strong> ${cls.day}</p>
+                    <p><strong>Hora:</strong> ${cls.time}</p>
+                    <p class="muted">Instructor: ${cls.instructor}</p>
+                `;
+                list.appendChild(item);
+            });
+        }
+
         function toggleReservation(classId) {
             const cls = scheduleData.find(c => c.id === classId);
             const planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
@@ -1180,6 +1282,54 @@
             });
         }
 
+        function cargarClasesPorDisciplinaAdmin() {
+            hydrateScheduleEnrollments();
+            const container = document.getElementById('admin-disciplines-classes');
+            const counts = scheduleData.reduce((acc, cls) => {
+                acc[cls.class] = (acc[cls.class] || 0) + cls.enrolled.length;
+                return acc;
+            }, {});
+
+            container.innerHTML = '';
+            Object.entries(counts).forEach(([disc, count]) => {
+                const row = document.createElement('div');
+                row.innerHTML = `<strong>${disc}</strong>: ${count} alumnos agendados`;
+                row.style.marginBottom = '6px';
+                container.appendChild(row);
+            });
+        }
+
+        function cargarAlumnosNoPagadosAdmin() {
+            const students = loadStudents();
+            const container = document.getElementById('admin-unpaid-list');
+            const total = document.getElementById('admin-unpaid-total');
+            const unpaid = students.filter(student => student.paymentStatus !== 'pagado');
+
+            total.innerText = unpaid.length;
+            container.innerHTML = '';
+
+            if (unpaid.length === 0) {
+                container.innerHTML = '<p class="muted">Sin alumnos pendientes o vencidos.</p>';
+                return;
+            }
+
+            unpaid.forEach(student => {
+                const statusText = student.paymentStatus === 'pendiente' ? 'Pendiente' : 'Vencido';
+                const statusClass = student.paymentStatus === 'pendiente' ? 'status-pending' : 'status-overdue';
+                const card = document.createElement('div');
+                card.className = 'info-card';
+                card.style.marginBottom = '10px';
+                card.innerHTML = `
+                    <h3>${student.name}</h3>
+                    <p><strong>Disciplina:</strong> ${student.discipline}</p>
+                    <p><strong>Plan:</strong> ${PLAN_CONFIG[student.plan]?.label || student.plan}</p>
+                    <p><span class="status-pill ${statusClass}">${statusText}</span></p>
+                    <button class="btn-paid" style="margin-top:8px;" onclick="actualizarPago('${student.id}', 'pagado')">Marcar como Pagado</button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
         function cargarAlumnosAdmin() {
             const students = loadStudents();
             const enrollments = getCurrentWeekEnrollments();
@@ -1222,6 +1372,7 @@
             }
             cargarResumenAdmin();
             cargarAlumnosAdmin();
+            cargarAlumnosNoPagadosAdmin();
             showToast('Estado de pago actualizado');
         }
 
@@ -1245,6 +1396,7 @@
             document.getElementById('form-new-alumno').reset();
             cargarResumenAdmin();
             cargarAlumnosAdmin();
+            cargarAlumnosNoPagadosAdmin();
         });
 
         hydrateScheduleEnrollments();
