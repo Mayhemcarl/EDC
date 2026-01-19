@@ -311,6 +311,27 @@
             cursor: pointer;
             margin-right: 4px;
         }
+        .admin-weekly-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .admin-day-card {
+            background: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .admin-day-card h4 { font-size: 0.9rem; margin-bottom: 8px; text-transform: uppercase; color: var(--secondary); }
+        .admin-class-item { background: #fff; border-left: 4px solid var(--primary); padding: 6px; margin-bottom: 8px; border-radius: 4px; font-size: 0.8rem; }
+        .admin-class-item strong { display: block; color: var(--secondary); }
+        .admin-key-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(211, 47, 47, 0.1);
+            color: var(--primary-dark);
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
         .btn-paid { background: var(--success); color: white; }
         .btn-pending { background: var(--warning); color: #333; }
         .btn-overdue { background: var(--danger); color: white; }
@@ -500,7 +521,7 @@
                     <div class="form-group">
                         <label>Clave</label>
                         <input type="password" class="form-control" id="access-code" required placeholder="Código">
-                        <small style="color:#888;">Miembros: 123321 | Admin: nombre igual a clave (ej. EDC2019)</small>
+                        <small style="color:#888;">Miembros: clave entregada por admin o nombre como clave temporal | Admin: nombre igual a clave (ej. EDC2019)</small>
                     </div>
                     <button class="btn-submit">ENTRAR</button>
                 </form>
@@ -589,29 +610,39 @@
                         <p>Total alumnos: <b id="total-alumnos">0</b></p>
                         <p>Pagos pendientes: <b id="total-pendiente">0</b></p>
                         <p>Pagos vencidos: <b id="total-vencido">0</b></p>
+                        <p>Pagos al día: <b id="total-pagados">0</b></p>
                         <ul id="disciplinas-count"></ul>
                     </div>
 
                     <div class="admin-card">
-                        <h3>Clases Agendadas</h3>
-                        <div id="admin-classes-list">
-                            <p class="muted">Cargando clases...</p>
+                        <h3>Clases Agendadas (Primera clase gratis)</h3>
+                        <div id="admin-trial-list">
+                            <p class="muted">Cargando solicitudes...</p>
                         </div>
                     </div>
 
                     <div class="admin-card">
-                        <h3>Clases por Disciplina</h3>
-                        <div id="admin-disciplines-classes">
-                            <p class="muted">Cargando resumen...</p>
+                        <h3>Plan de Clases Semanal</h3>
+                        <div id="admin-weekly-plan">
+                            <p class="muted">Cargando itinerario...</p>
                         </div>
                     </div>
 
                     <div class="admin-card">
-                        <h3>Alumnos con Pago Pendiente/Vencido</h3>
-                        <p>Total no pago: <b id="admin-unpaid-total">0</b></p>
+                        <h3>Estado de Pagos</h3>
+                        <p>Total alumnos: <b id="admin-total-students">0</b></p>
+                        <p>Pagos al día: <b id="admin-paid-total">0</b></p>
+                        <p>Pagos pendientes/vencidos: <b id="admin-unpaid-total">0</b></p>
                         <div id="admin-unpaid-list">
-                            <p class="muted">Cargando alumnos...</p>
+                            <p class="muted">Cargando alumnos pendientes...</p>
                         </div>
+                    </div>
+                </div>
+
+                <div class="admin-card" style="margin-top:1.5rem;">
+                    <h3>Clases por Disciplina</h3>
+                    <div id="admin-disciplines-classes">
+                        <p class="muted">Cargando resumen...</p>
                     </div>
                 </div>
 
@@ -624,6 +655,7 @@
                                     <th>Nombre</th>
                                     <th>Disciplina</th>
                                     <th>Plan</th>
+                                    <th>Clave</th>
                                     <th>Clases Semana</th>
                                     <th>Estado Pago</th>
                                     <th>Acción</th>
@@ -769,15 +801,16 @@
         };
 
         const DEFAULT_STUDENTS = [
-            { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10" },
-            { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "4x", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05" },
-            { id: "s3", name: "Valentina Ríos", discipline: "Judo", plan: "2x", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28" },
-            { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01" }
+            { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
+            { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "4x", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
+            { id: "s3", name: "Valentina Ríos", discipline: "Judo", plan: "2x", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28", accessCode: "JD-2051" },
+            { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
         ];
 
         const STORAGE_KEYS = {
             students: "edc_students",
-            enrollments: "edc_enrollments"
+            enrollments: "edc_enrollments",
+            trialRequests: "edc_trial_requests"
         };
 
         let currentUser = null;
@@ -806,6 +839,22 @@
 
         function saveStudents(students) {
             localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(students));
+        }
+
+        function loadTrialRequests() {
+            const stored = localStorage.getItem(STORAGE_KEYS.trialRequests);
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        function saveTrialRequests(requests) {
+            localStorage.setItem(STORAGE_KEYS.trialRequests, JSON.stringify(requests));
+        }
+
+        function generateAccessCode(student) {
+            if (student?.accessCode) return student.accessCode;
+            const prefix = (student?.discipline || 'EDC').split(' ')[0].substring(0, 2).toUpperCase();
+            const random = Math.floor(1000 + Math.random() * 9000);
+            return `${prefix}-${random}`;
         }
 
         function getWeekKey(date = new Date()) {
@@ -927,14 +976,40 @@
                     try {
                         const res = JSON.parse(text);
                         if (res.result === "success") {
+                            const requests = loadTrialRequests();
+                            requests.unshift({
+                                id: `t${Date.now()}`,
+                                nombre: data.nombre,
+                                disciplina: data.disciplina,
+                                telefono: data.telefono,
+                                email: data.email,
+                                fecha: new Date().toISOString()
+                            });
+                            saveTrialRequests(requests);
                             showToast("Solicitud enviada correctamente");
                             closeModal('trial-modal');
                             document.querySelector('#trial-modal form').reset();
+                            if (isAdmin) {
+                                cargarSolicitudesTrialAdmin();
+                            }
                         } else {
                             showToast("Error: " + (res.message || "Desconocido"));
                         }
                     } catch (e) {
+                        const requests = loadTrialRequests();
+                        requests.unshift({
+                            id: `t${Date.now()}`,
+                            nombre: data.nombre,
+                            disciplina: data.disciplina,
+                            telefono: data.telefono,
+                            email: data.email,
+                            fecha: new Date().toISOString()
+                        });
+                        saveTrialRequests(requests);
                         showToast("Datos guardados (Respuesta no JSON)");
+                        if (isAdmin) {
+                            cargarSolicitudesTrialAdmin();
+                        }
                     }
                 })
                 .catch(error => {
@@ -971,14 +1046,18 @@
                 return;
             }
 
-            if (code !== '123321') {
-                showToast('Clave incorrecta');
-                return;
-            }
-
             const student = getStudentByName(name);
             if (!student) {
                 showToast('Alumno no encontrado. Verifica el nombre.');
+                return;
+            }
+
+            const normalizedCode = code.toLowerCase();
+            const nameKey = student.name.toLowerCase();
+            const accessKey = (student.accessCode || '').toLowerCase();
+
+            if (!normalizedCode || (normalizedCode !== nameKey && normalizedCode !== accessKey)) {
+                showToast('Clave incorrecta');
                 return;
             }
 
@@ -1050,7 +1129,8 @@
 
         function abrirPanelAdmin() {
             cargarResumenAdmin();
-            cargarClasesAdmin();
+            cargarSolicitudesTrialAdmin();
+            cargarPlanClasesAdmin();
             cargarClasesPorDisciplinaAdmin();
             cargarAlumnosNoPagadosAdmin();
             cargarAlumnosAdmin();
@@ -1252,6 +1332,7 @@
             document.getElementById('total-alumnos').innerText = students.length;
             document.getElementById('total-pendiente').innerText = students.filter(s => s.paymentStatus === 'pendiente').length;
             document.getElementById('total-vencido').innerText = students.filter(s => s.paymentStatus === 'vencido').length;
+            document.getElementById('total-pagados').innerText = students.filter(s => s.paymentStatus === 'pagado').length;
 
             const counts = students.reduce((acc, s) => {
                 acc[s.discipline] = (acc[s.discipline] || 0) + 1;
@@ -1267,19 +1348,67 @@
             });
         }
 
-        function cargarClasesAdmin() {
-            hydrateScheduleEnrollments();
-            const container = document.getElementById('admin-classes-list');
+        function cargarSolicitudesTrialAdmin() {
+            const container = document.getElementById('admin-trial-list');
+            const requests = loadTrialRequests();
             container.innerHTML = '';
-            scheduleData.forEach(cls => {
+
+            if (requests.length === 0) {
+                container.innerHTML = '<p class="muted">No hay solicitudes registradas.</p>';
+                return;
+            }
+
+            requests.forEach(req => {
                 const item = document.createElement('div');
+                const formattedDate = req.fecha ? new Date(req.fecha).toLocaleString('es-CL') : 'Sin fecha';
+                item.className = 'info-card';
                 item.style.marginBottom = '10px';
                 item.innerHTML = `
-                    <strong>${cls.day} ${cls.time}</strong> - ${cls.class}
-                    <div class="muted">${cls.enrolled.length}/${cls.capacity} alumnos: ${cls.enrolled.map(u => u.name).join(', ') || 'Sin alumnos'}</div>
+                    <h3>${req.nombre}</h3>
+                    <p><strong>Disciplina:</strong> ${req.disciplina || '-'}</p>
+                    <p><strong>Teléfono:</strong> ${req.telefono || '-'}</p>
+                    <p><strong>Email:</strong> ${req.email || '-'}</p>
+                    <p class="muted">Registrado: ${formattedDate}</p>
                 `;
                 container.appendChild(item);
             });
+        }
+
+        function cargarPlanClasesAdmin() {
+            hydrateScheduleEnrollments();
+            const container = document.getElementById('admin-weekly-plan');
+            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+            container.innerHTML = '';
+
+            const grid = document.createElement('div');
+            grid.className = 'admin-weekly-grid';
+
+            days.forEach(day => {
+                const dayCard = document.createElement('div');
+                dayCard.className = 'admin-day-card';
+                dayCard.innerHTML = `<h4>${day}</h4>`;
+
+                const dayClasses = scheduleData.filter(cls => cls.day === day);
+                if (dayClasses.length === 0) {
+                    dayCard.innerHTML += '<p class="muted">Sin clases</p>';
+                } else {
+                    dayClasses.forEach(cls => {
+                        const attendees = cls.enrolled.map(u => u.name).join(', ') || 'Sin alumnos';
+                        const item = document.createElement('div');
+                        item.className = 'admin-class-item';
+                        item.innerHTML = `
+                            <strong>${cls.time} - ${cls.class}</strong>
+                            <span class="muted">${cls.instructor}</span><br>
+                            <span>Alumnos: ${attendees}</span>
+                        `;
+                        dayCard.appendChild(item);
+                    });
+                }
+
+                grid.appendChild(dayCard);
+            });
+
+            container.appendChild(grid);
         }
 
         function cargarClasesPorDisciplinaAdmin() {
@@ -1304,6 +1433,10 @@
             const container = document.getElementById('admin-unpaid-list');
             const total = document.getElementById('admin-unpaid-total');
             const unpaid = students.filter(student => student.paymentStatus !== 'pagado');
+            const paid = students.filter(student => student.paymentStatus === 'pagado');
+
+            document.getElementById('admin-total-students').innerText = students.length;
+            document.getElementById('admin-paid-total').innerText = paid.length;
 
             total.innerText = unpaid.length;
             container.innerHTML = '';
@@ -1343,12 +1476,14 @@
 
                 const statusClass = student.paymentStatus === 'pagado' ? 'status-paid' : student.paymentStatus === 'pendiente' ? 'status-pending' : 'status-overdue';
                 const statusText = student.paymentStatus === 'pagado' ? 'Pagado' : student.paymentStatus === 'pendiente' ? 'Pendiente' : 'Vencido';
+                const accessKey = student.accessCode || student.name;
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${student.name}</td>
                     <td>${student.discipline}</td>
                     <td>${PLAN_CONFIG[student.plan]?.label || student.plan}</td>
+                    <td><span class="admin-key-pill">${accessKey}</span></td>
                     <td>${classCount}</td>
                     <td><span class="status-pill ${statusClass}">${statusText}</span></td>
                     <td class="admin-actions">
@@ -1379,20 +1514,24 @@
         document.getElementById('form-new-alumno').addEventListener('submit', (e) => {
             e.preventDefault();
             const students = loadStudents();
+            const discipline = document.getElementById('new-disciplina').value;
+            const name = document.getElementById('new-nombre').value.trim();
+            const accessCode = generateAccessCode({ discipline });
             const newStudent = {
                 id: `s${Date.now()}`,
-                name: document.getElementById('new-nombre').value.trim(),
-                discipline: document.getElementById('new-disciplina').value,
+                name,
+                discipline,
                 plan: document.getElementById('new-plan').value,
                 paymentStatus: 'pendiente',
                 phone: document.getElementById('new-telefono').value.trim(),
                 email: document.getElementById('new-email').value.trim(),
-                paymentDue: new Date().toISOString().split('T')[0]
+                paymentDue: new Date().toISOString().split('T')[0],
+                accessCode
             };
 
             students.push(newStudent);
             saveStudents(students);
-            document.getElementById('new-alumno-result').innerText = `Alumno ${newStudent.name} registrado.`;
+            document.getElementById('new-alumno-result').innerText = `Alumno ${newStudent.name} registrado. Clave de acceso: ${accessCode} (puedes usar el nombre como clave temporal).`;
             document.getElementById('form-new-alumno').reset();
             cargarResumenAdmin();
             cargarAlumnosAdmin();
