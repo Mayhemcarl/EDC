@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-    
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,26 +7,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
     <link rel="icon" href="logo.png">
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-        import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-        import { getDatabase } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
-      
-        const firebaseConfig = {
-  apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
-  authDomain: "elemental-dojo-curico.firebaseapp.com",
-  projectId: "elemental-dojo-curico",
-  storageBucket: "elemental-dojo-curico.firebasestorage.app",
-  messagingSenderId: "39532293146",
-  appId: "1:39532293146:web:0c44ace849aeed5f5335a3"
-};
-      
-        const app = initializeApp(firebaseConfig);
-      
-        // 🔴 ESTO ES LO QUE TE FALTABA
-        window.auth = getAuth(app);
-        window.db   = getDatabase(app);
-      </script>
     <style>
         :root {
             --primary: #d32f2f;
@@ -36,32 +15,37 @@
             --background: #f5f5f5;
             --white: #ffffff;
             --accent: #ffa502;
+            --success: #2e7d32;
+            --danger: #c62828;
+            --warning: #f9a825;
             --shadow: 0 4px 15px rgba(0,0,0,0.15);
             --radius: 8px;
             --transition: all 0.3s ease;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Open Sans', sans-serif; background-color: var(--background); color: var(--text-color); }
+        body { font-family: 'Open Sans', sans-serif; background-color: var(--background); color: #333; }
         h1, h2, h3 { font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase; }
+        img { max-width: 100%; display: block; }
+        button { font-family: inherit; }
 
         /* --- Header --- */
-        header { 
-            background: var(--secondary); 
-            padding: 0.8rem 5%; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            color: var(--white); 
-            position: sticky; 
-            top: 0; 
+        header {
+            background: var(--secondary);
+            padding: 0.8rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--white);
+            position: sticky;
+            top: 0;
             z-index: 1000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
 
         .logo-container { display: flex; align-items: center; gap: 15px; }
-        .logo-img { height: 70px; width: auto; object-fit: contain; }
-        .logo-text { font-size: 1.5rem; letter-spacing: 1px; line-height: 1; }
+        .logo-img { height: 64px; width: auto; object-fit: contain; }
+        .logo-text { font-size: 1.4rem; letter-spacing: 1px; line-height: 1; }
         .logo-text span { color: var(--primary); }
 
         .btn-login {
@@ -78,102 +62,103 @@
         .btn-login:hover { border-color: var(--primary); color: var(--primary); }
 
         /* --- Hero --- */
-       .hero {
-          background: 
-            linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)),
-            url('https://drive.google.com/thumbnail?id=1TUcxYNm4PlYZasEDvOo1ixfkxgnGGhQx&sz=w2000');
-    
-          background-size: cover;
-          background-position: center;
-          height: 65vh;
-  
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          color: var(--white);
-          }
+        .hero {
+            background:
+                linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)),
+                url('https://drive.google.com/thumbnail?id=1TUcxYNm4PlYZasEDvOo1ixfkxgnGGhQx&sz=w2000');
+            background-size: cover;
+            background-position: center;
+            min-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--white);
+            padding: 2rem;
+        }
         .hero h1 { font-size: 3rem; margin-bottom: 10px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        
+        .hero p { max-width: 620px; }
+
         .btn-hero {
-            padding: 15px 40px; font-size: 1.1rem; background-color: var(--primary); color: var(--white); border: none; border-radius: 4px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 5px 15px rgba(211, 47, 47, 0.4); transition: var(--transition); display: inline-flex; align-items: center; gap: 10px; margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            background-color: var(--primary);
+            color: var(--white);
+            border: none;
+            border-radius: 4px;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 5px 15px rgba(211, 47, 47, 0.4);
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
         }
         .btn-hero:hover { background-color: var(--primary-dark); transform: translateY(-3px); }
 
-        /* --- Grid Clases --- */
+        /* --- Main Layout --- */
         main { padding: 4rem 5%; max-width: 1200px; margin: 0 auto; }
-        .section-title { text-align: center; margin-bottom: 3rem; }
-        .section-title h2 { font-size: 2.5rem; color: var(--secondary); border-bottom: 4px solid var(--primary); display: inline-block; padding-bottom: 5px; }
+        section { margin-bottom: 4rem; }
+        .section-title { text-align: center; margin-bottom: 2.5rem; }
+        .section-title h2 { font-size: 2.3rem; color: var(--secondary); border-bottom: 4px solid var(--primary); display: inline-block; padding-bottom: 5px; }
+        .section-title p { margin-top: 10px; color: #666; }
 
-        .classes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem; }
-        .class-card { 
-            background: var(--white); 
-            border-radius: var(--radius); 
-            overflow: hidden; 
-            box-shadow: var(--shadow); 
-            display: flex; 
-            flex-direction: column; 
+        .classes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2rem; }
+        .class-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
             transition: var(--transition);
-            cursor: pointer; 
+            cursor: pointer;
             position: relative;
         }
-        .class-card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(0,0,0,0.2); }
-        
-        .card-img { height: 200px; background-size: cover; background-position: center; position: relative; }
+        .class-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(0,0,0,0.2); }
+
+        .card-img { height: 180px; background-size: cover; background-position: center; position: relative; }
         .card-overlay { position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 15px; }
-        .card-title { font-size: 1.3rem; color: var(--white); text-shadow: 1px 1px 3px black; }
-        
-        .card-content { padding: 1.5rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        .click-hint { margin-top: 15px; font-size: 0.8rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+        .card-title { font-size: 1.2rem; color: var(--white); text-shadow: 1px 1px 3px black; }
 
-        /* --- TABLA HORARIOS (MEJORA ESTÉTICA) --- */
-        .timetable-container {
-            overflow-x: auto;
-            background: white;
-            border-radius: 8px;
+        .card-content { padding: 1.4rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 10px; }
+        .click-hint { margin-top: 5px; font-size: 0.75rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+        .info-card {
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: var(--radius);
             box-shadow: var(--shadow);
-            margin-top: 20px;
+            border-top: 4px solid var(--primary);
         }
-        .timetable {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 600px;
-        }
-        .timetable th {
-            background: var(--secondary);
-            color: white;
-            padding: 12px;
-            text-align: center;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-        }
-        .timetable td {
-            border: 1px solid #eee;
-            padding: 10px;
-            text-align: center;
-            vertical-align: top;
-            color: #555;
-            font-size: 0.9rem;
-        }
-        .tt-header { font-weight: bold; color: var(--secondary); display: block; margin-bottom: 4px; }
-        .tt-time { color: var(--primary); font-weight: 700; font-size: 0.95rem; display: block; }
-        .tt-prof { font-size: 0.8rem; color: #888; display: block; }
-        .tt-spots { font-size: 0.75rem; background: #f0f0f0; display: inline-block; padding: 2px 6px; border-radius: 4px; margin-top: 4px; }
+        .info-card h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+        .info-card p { color: #555; font-size: 0.95rem; }
 
-        /* --- CALENDARIO GRID --- */
+        .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; }
+        .plan-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+        .plan-card h3 { font-size: 1.2rem; }
+        .plan-card span { color: var(--primary); font-weight: 700; }
+
+        /* --- Calendar Grid --- */
         .calendar-wrapper {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 10px;
             margin-top: 20px;
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        @media (max-width: 768px) { .calendar-wrapper { grid-template-columns: 1fr; } }
-
         .day-column {
             background: #fafafa;
             border-radius: 6px;
@@ -188,6 +173,7 @@
             padding-bottom:5px;
             border-bottom: 2px solid var(--primary);
             text-transform: uppercase;
+            font-size: 0.85rem;
         }
         .cal-card {
             background: white;
@@ -205,33 +191,63 @@
         .cal-btn {
             display: block;
             width: 100%;
-            padding: 5px;
-            margin-top: 5px;
+            padding: 6px;
+            margin-top: 6px;
             border: none;
             border-radius: 3px;
             cursor: pointer;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 700;
             text-transform: uppercase;
         }
         .cal-btn.reserve { background: var(--success); color: white; }
         .cal-btn.cancel { background: var(--danger); color: white; }
-        .cal-btn.disabled { background: #ccc; cursor: not-allowed; }
+        .cal-btn.disabled { background: #ccc; cursor: not-allowed; color: #666; }
 
-        /* --- MODALS --- */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: var(--transition); }
+        /* --- Tables --- */
+        .timetable-container {
+            overflow-x: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-top: 20px;
+        }
+        .timetable {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        .timetable th {
+            background: var(--secondary);
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        .timetable td {
+            border: 1px solid #eee;
+            padding: 10px;
+            text-align: center;
+            vertical-align: top;
+            color: #555;
+            font-size: 0.85rem;
+        }
+        .tt-header { font-weight: bold; color: var(--secondary); display: block; margin-bottom: 4px; }
+        .tt-time { color: var(--primary); font-weight: 700; font-size: 0.95rem; display: block; }
+        .tt-prof { font-size: 0.8rem; color: #888; display: block; }
+        .tt-spots { font-size: 0.75rem; background: #f0f0f0; display: inline-block; padding: 2px 6px; border-radius: 4px; margin-top: 4px; }
+
+        /* --- Modals --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: var(--transition); }
         .modal-overlay.open { opacity: 1; visibility: visible; }
-
         .modal { background: var(--white); width: 95%; max-width: 1000px; border-radius: var(--radius); padding: 0; position: relative; transform: translateY(20px); transition: var(--transition); max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
         .modal-overlay.open .modal { transform: translateY(0); }
-
-        .modal-header { background: var(--secondary); color: var(--white); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-        .modal-header h3 { margin: 0; }
+        .modal-header { background: var(--secondary); color: var(--white); padding: 1.2rem; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; font-size: 1.1rem; }
         .close-modal { background: none; border: none; color: var(--white); font-size: 1.5rem; cursor: pointer; }
+        .modal-body { padding: 1.8rem; }
 
-        .modal-body { padding: 2rem; }
-        
-        /* --- Plan Limits --- */
         .plan-limit-info {
             background: #e3f2fd;
             color: #1565c0;
@@ -244,14 +260,29 @@
         }
         .limit-number { font-weight: bold; font-size: 1.1rem; }
 
-        /* --- Formularios --- */
+        .payment-banner {
+            background: #fff3e0;
+            border: 1px solid #ffe0b2;
+            color: #e65100;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+        .payment-banner.is-overdue {
+            background: #ffebee;
+            border-color: #ffcdd2;
+            color: #c62828;
+        }
+
+        /* --- Forms --- */
         .form-group { margin-bottom: 1rem; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
         .form-control { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
         .btn-submit { width: 100%; padding: 12px; background: var(--primary); color: var(--white); border: none; border-radius: 4px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
         .btn-submit:disabled { background: #888; cursor: not-allowed; }
 
-        .plan-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; margin-left: 5px; color: white; text-transform: uppercase; }
+        .tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; margin-left: 5px; color: white; text-transform: uppercase; }
         .tag-basic { background: #90a4ae; }
         .tag-premium { background: #ffa502; }
         .tag-vip { background: #d32f2f; }
@@ -259,43 +290,180 @@
         .toast { position: fixed; bottom: 30px; right: 30px; background: var(--secondary); color: var(--white); padding: 15px 25px; border-radius: 4px; transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 3000; border-left:5px solid var(--primary); }
         .toast.show { transform: translateY(0); opacity: 1; }
 
+        /* --- Admin --- */
+        .admin-panel { padding: 2rem; }
+        .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+        .admin-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+        }
+        .admin-card h3 { margin-bottom: 1rem; font-size: 1.1rem; }
+        .admin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .admin-table th, .admin-table td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+        .admin-table th { font-size: 0.8rem; text-transform: uppercase; color: #666; }
+        .admin-actions button {
+            border: none;
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-right: 4px;
+        }
+        .btn-paid { background: var(--success); color: white; }
+        .btn-pending { background: var(--warning); color: #333; }
+        .btn-overdue { background: var(--danger); color: white; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .status-paid { background: #e8f5e9; color: #1b5e20; }
+        .status-pending { background: #fff8e1; color: #ff6f00; }
+        .status-overdue { background: #ffebee; color: #c62828; }
+
+        .hidden { display: none !important; }
+        .muted { color: #888; font-size: 0.85rem; }
+
+        /* --- User Menu --- */
+        .user-menu {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: var(--secondary);
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1500;
+        }
+        .user-menu button {
+            background: var(--white);
+            border: none;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .user-menu button i { margin-right: 6px; }
+
+        /* --- Responsive --- */
+        @media (max-width: 900px) {
+            header { flex-direction: column; gap: 10px; text-align: center; }
+            .hero h1 { font-size: 2.3rem; }
+            .calendar-wrapper { grid-template-columns: repeat(2, 1fr); }
+            .user-menu { left: 10px; right: 10px; bottom: 10px; flex-direction: row; justify-content: space-between; }
+            .user-menu button { flex: 1; font-size: 0.75rem; }
+        }
+
+        @media (max-width: 600px) {
+            main { padding: 2.5rem 6%; }
+            .calendar-wrapper { grid-template-columns: 1fr; }
+            .hero { min-height: 50vh; }
+            .btn-hero { width: 100%; justify-content: center; }
+            .admin-table th, .admin-table td { font-size: 0.8rem; }
+        }
     </style>
 </head>
 <body>
+    <header>
+        <div class="logo-container">
+            <img
+                src="https://drive.google.com/thumbnail?id=1BiZrN_diA71WFLQ-f-psSomukbm2oR9M&sz=w500"
+                alt="Elemental Dojo"
+                class="logo-img"
+            >
+            <div class="logo-text">ELEMENTAL <span>DOJO</span></div>
+        </div>
 
-    <<header>
-      <div class="logo-container">
-      <img 
-      src="https://drive.google.com/thumbnail?id=1BiZrN_diA71WFLQ-f-psSomukbm2oR9M&sz=w500"
-      alt="Elemental Dojo"
-      class="logo-img"
-     >
-     <div class="logo-text">ELEMENTAL <span>DOJO</span></div>
-      </div>
-
-      <button class="btn-login" onclick="openLoginModal()">
-      <i class="fas fa-user-lock"></i> ACCESO
-      </button>
+        <button class="btn-login" onclick="openLoginModal()">
+            <i class="fas fa-user-lock"></i> ACCESO
+        </button>
     </header>
 
     <div class="hero">
         <h1>Reserva tu Clase</h1>
-        <p>Gestiona tu asistencia semanal según tu plan.</p>
+        <p>Gestiona tu asistencia semanal según tu plan y recibe recordatorios de pago.</p>
         <button class="btn-hero" onclick="openTrialModal()">
             <i class="fas fa-calendar-plus"></i> PRIMERA CLASE GRATIS
         </button>
     </div>
 
-    <!-- GRID DE TARJETAS -->
     <main>
-        <div class="section-title">
-            <h2>Nuestras Disciplinas</h2>
-            <p style="margin-top:10px; color:#666;">Haz clic para ver el horario de la disciplina</p>
-        </div>
-        <div class="classes-grid" id="classes-grid"></div>
+        <section>
+            <div class="section-title">
+                <h2>Nuestras Disciplinas</h2>
+                <p>Haz clic para ver el horario de la disciplina</p>
+            </div>
+            <div class="classes-grid" id="classes-grid"></div>
+        </section>
+
+        <section>
+            <div class="section-title">
+                <h2>Más Ítems para Tu Experiencia</h2>
+                <p>Sumamos más servicios para alumnos y administradores</p>
+            </div>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3><i class="fas fa-bell"></i> Recordatorios de Pago</h3>
+                    <p>Alertas automáticas para pagos pendientes y bloqueo de reservas cuando el estado está vencido.</p>
+                </div>
+                <div class="info-card">
+                    <h3><i class="fas fa-calendar-check"></i> Límite Semanal</h3>
+                    <p>Los alumnos pueden reservar según su plan semanal, con contador visible y claridad total.</p>
+                </div>
+                <div class="info-card">
+                    <h3><i class="fas fa-users"></i> Panel Administrativo</h3>
+                    <p>Vista completa de alumnos, disciplina, plan, estado de pago y acciones rápidas.</p>
+                </div>
+                <div class="info-card">
+                    <h3><i class="fas fa-mobile-screen"></i> Vista Móvil</h3>
+                    <p>Diseño adaptable tipo app para que alumnos reserven desde el celular sin fricciones.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="section-title">
+                <h2>Planes Semanales</h2>
+                <p>Elige un plan y reserva según tu límite semanal</p>
+            </div>
+            <div class="plan-grid">
+                <div class="plan-card">
+                    <h3>Plan 2x</h3>
+                    <span>2 clases por semana</span>
+                    <p>Ideal para quienes entrenan 2 veces por semana.</p>
+                </div>
+                <div class="plan-card">
+                    <h3>Plan 4x</h3>
+                    <span>4 clases por semana</span>
+                    <p>Para mantener un ritmo constante durante la semana.</p>
+                </div>
+                <div class="plan-card">
+                    <h3>Plan Full</h3>
+                    <span>6 clases por semana</span>
+                    <p>Acceso casi diario con prioridad en reservas.</p>
+                </div>
+                <div class="plan-card">
+                    <h3>Clase de prueba</h3>
+                    <span>1 clase</span>
+                    <p>Primera clase para conocer la experiencia Elemental.</p>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <!-- MODAL 1: CLASE DE PRUEBA (CONEXIÓN A GOOGLE SHEET) -->
+    <!-- MODAL: CLASE DE PRUEBA -->
     <div class="modal-overlay" id="trial-modal">
         <div class="modal" style="max-width:500px;">
             <div class="modal-header">
@@ -314,7 +482,7 @@
         </div>
     </div>
 
-    <!-- MODAL 2: LOGIN -->
+    <!-- MODAL: LOGIN -->
     <div class="modal-overlay" id="login-modal">
         <div class="modal" style="max-width:500px;">
             <div class="modal-header">
@@ -325,9 +493,9 @@
                 <form onsubmit="handleLogin(event)">
                     <div class="form-group">
                         <label>Tu Nombre</label>
-                        <input type="text" class="form-control" id="user-name" required placeholder="Ej. Carlos">
+                        <input type="text" class="form-control" id="user-name" required placeholder="Ej. Camila Soto">
                     </div>
-                   
+
                     <div class="form-group">
                         <label>Clave</label>
                         <input type="password" class="form-control" id="access-code" required placeholder="Código">
@@ -338,99 +506,8 @@
             </div>
         </div>
     </div>
-    <section id="admin-panel" class="admin-panel hidden">
 
-        <h2>Panel de Administración</h2>
-      
-        <!-- =========================
-             RESUMEN GENERAL
-             ========================= -->
-        <div class="admin-card">
-          <h3>Resumen General</h3>
-          <p>Total alumnos: <b id="total-alumnos">0</b></p>
-          <ul id="disciplinas-count">
-            <!-- dinámico -->
-          </ul>
-        </div>
-      
-        <!-- =========================
-             CLASES AGENDADAS
-             ========================= -->
-        <div class="admin-card">
-          <h3>Clases Agendadas</h3>
-          <div id="admin-classes-list">
-            <p class="muted">Cargando clases...</p>
-          </div>
-        </div>
-      
-        <!-- =========================
-             LISTA DE ALUMNOS
-             ========================= -->
-        <div class="admin-card">
-          <h3>Estado de Alumnos</h3>
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Disciplina</th>
-                <th>Plan</th>
-                <th>Estado Pago</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody id="admin-alumnos-table">
-              <!-- dinámico -->
-            </tbody>
-          </table>
-        </div>
-        <div id="user-menu" class="hidden">
-
-            <button onclick="abrirCalendario()">📅 Mis Clases</button>
-            <button onclick="abrirEstadoPago()">💳 Estado de Pago</button>
-            <button onclick="abrirPerfil()">👤 Mi Perfil</button>
-          
-            <button id="btnAdminPanel"
-                    class="hidden"
-                    onclick="abrirPanelAdmin()">⚙ Administración</button>
-          
-          </div>
-          <div id="calendar-modal" class="modal hidden">...</div>
-<div id="payment-modal" class="modal hidden">...</div>
-<div id="profile-modal" class="modal hidden">...</div>
-<div id="admin-modal" class="modal hidden">...</div>
-        <!-- =========================
-             REGISTRO NUEVO ALUMNO
-             ========================= -->
-        <div class="admin-card">
-          <h3>Registrar Nuevo Alumno</h3>
-      
-          <form id="form-new-alumno">
-            <input type="text" id="new-nombre" placeholder="Nombre completo" required />
-            <input type="tel" id="new-telefono" placeholder="Teléfono" required />
-            <input type="email" id="new-email" placeholder="Email" />
-      
-            <select id="new-plan" required>
-              <option value="">Seleccionar plan</option>
-              <option value="FULL">FULL</option>
-              <option value="2x">2 veces</option>
-              <option value="PRUEBA">Clase de prueba</option>
-            </select>
-      
-            <select id="new-disciplina" required>
-              <option value="">Disciplina</option>
-              <option value="Jiu Jitsu">Jiu Jitsu</option>
-              <option value="Judo">Judo</option>
-              <option value="Kick Boxing">Kick Boxing</option>
-            </select>
-      
-            <button type="submit">Registrar Alumno</button>
-          </form>
-      
-          <p id="new-alumno-result" class="muted"></p>
-        </div>
-      
-      </section>
-    <!-- MODAL 3: CALENDARIO (ADMIN/ALUMNO) -->
+    <!-- MODAL: CALENDARIO -->
     <div class="modal-overlay" id="calendar-modal">
         <div class="modal">
             <div class="modal-header">
@@ -438,18 +515,127 @@
                 <button class="close-modal" onclick="closeModal('calendar-modal')">&times;</button>
             </div>
             <div class="modal-body">
-                
-                <div id="limit-info" class="plan-limit-info" style="display:none;">
-                    Tu plan es <strong id="plan-name-display"></strong>. 
+                <div id="payment-banner" class="payment-banner hidden"></div>
+                <div id="limit-info" class="plan-limit-info hidden">
+                    Tu plan es <strong id="plan-name-display"></strong>.
                     Has agendado <span id="classes-count" class="limit-number">0</span> de <span id="max-classes" class="limit-number"></span> clases.
                 </div>
-
                 <div class="calendar-wrapper" id="calendar-grid"></div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 4: HORARIOS PÚBLICOS (MEJOR ESTÉTICA TABLA) -->
+    <!-- MODAL: ESTADO PAGO -->
+    <div class="modal-overlay" id="payment-modal">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <h3>Estado de Pago</h3>
+                <button class="close-modal" onclick="closeModal('payment-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="payment-status-card" class="info-card"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PERFIL -->
+    <div class="modal-overlay" id="profile-modal">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <h3>Mi Perfil</h3>
+                <button class="close-modal" onclick="closeModal('profile-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="info-card">
+                    <h3 id="profile-name">Alumno</h3>
+                    <p><strong>Disciplina:</strong> <span id="profile-discipline">-</span></p>
+                    <p><strong>Plan:</strong> <span id="profile-plan">-</span></p>
+                    <p><strong>Estado de pago:</strong> <span id="profile-payment">-</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PANEL ADMIN -->
+    <div class="modal-overlay" id="admin-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Panel de Administración</h3>
+                <button class="close-modal" onclick="closeModal('admin-modal')">&times;</button>
+            </div>
+            <div class="modal-body admin-panel">
+                <div class="admin-grid">
+                    <div class="admin-card">
+                        <h3>Resumen General</h3>
+                        <p>Total alumnos: <b id="total-alumnos">0</b></p>
+                        <p>Pagos pendientes: <b id="total-pendiente">0</b></p>
+                        <p>Pagos vencidos: <b id="total-vencido">0</b></p>
+                        <ul id="disciplinas-count"></ul>
+                    </div>
+
+                    <div class="admin-card">
+                        <h3>Clases Agendadas</h3>
+                        <div id="admin-classes-list">
+                            <p class="muted">Cargando clases...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-card" style="margin-top:1.5rem;">
+                    <h3>Estado de Alumnos</h3>
+                    <div style="overflow-x:auto;">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Disciplina</th>
+                                    <th>Plan</th>
+                                    <th>Clases Semana</th>
+                                    <th>Estado Pago</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-alumnos-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="admin-card" style="margin-top:1.5rem;">
+                    <h3>Registrar Nuevo Alumno</h3>
+                    <form id="form-new-alumno">
+                        <div class="form-group"><input type="text" id="new-nombre" class="form-control" placeholder="Nombre completo" required></div>
+                        <div class="form-group"><input type="tel" id="new-telefono" class="form-control" placeholder="Teléfono" required></div>
+                        <div class="form-group"><input type="email" id="new-email" class="form-control" placeholder="Email"></div>
+
+                        <div class="form-group">
+                            <select id="new-plan" class="form-control" required>
+                                <option value="">Seleccionar plan</option>
+                                <option value="2x">Plan 2x</option>
+                                <option value="4x">Plan 4x</option>
+                                <option value="FULL">Plan Full</option>
+                                <option value="PRUEBA">Clase de prueba</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <select id="new-disciplina" class="form-control" required>
+                                <option value="">Disciplina</option>
+                                <option value="Jiu Jitsu">Jiu Jitsu</option>
+                                <option value="Jiu Jitsu Kid">Jiu Jitsu Kid</option>
+                                <option value="Judo">Judo</option>
+                                <option value="Kick Boxing">Kick Boxing</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-submit">Registrar Alumno</button>
+                    </form>
+                    <p id="new-alumno-result" class="muted"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: HORARIOS PÚBLICOS -->
     <div class="modal-overlay" id="public-schedule-modal">
         <div class="modal">
             <div class="modal-header">
@@ -460,14 +646,13 @@
                 <p style="margin-bottom:20px; text-align:center; color:#666;">
                     Revisa la disponibilidad para esta semana.
                 </p>
-                
-                <!-- ESTÉTICA MEJORADA: TABLA -->
+
                 <div class="timetable-container">
                     <table class="timetable">
                         <tbody id="public-schedule-table"></tbody>
                     </table>
                 </div>
-                
+
                 <div style="text-align:center; margin-top:30px; padding-top:20px; border-top:1px solid #eee;">
                     <p style="margin-bottom:15px; font-size:0.9rem;">¿Te interesa? Reserva tu lugar ahora.</p>
                     <button class="btn-hero" style="font-size:0.9rem; padding:10px 30px;" onclick="closeModal('public-schedule-modal'); openLoginModal();">
@@ -480,12 +665,18 @@
 
     <div id="toast" class="toast">Mensaje</div>
 
-    <script>
-        // --- DATOS Y CONFIGURACIÓN ---
-        // URL DE TU WEB APP DE GOOGLE SHEETS
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzHj0JGyuEWjI7B9KiLVQRTzNe4avfTEYK6GShiLkngSYUmpXXgCVe0fHKNhulFIqTyw/exec'; 
+    <div id="user-menu" class="user-menu hidden">
+        <button onclick="abrirCalendario()"><i class="fas fa-calendar"></i> Mis Clases</button>
+        <button onclick="abrirEstadoPago()"><i class="fas fa-credit-card"></i> Estado de Pago</button>
+        <button onclick="abrirPerfil()"><i class="fas fa-user"></i> Mi Perfil</button>
+        <button id="btnAdminPanel" class="hidden" onclick="abrirPanelAdmin()"><i class="fas fa-gear"></i> Admin</button>
+        <button onclick="cerrarSesion()"><i class="fas fa-arrow-right-from-bracket"></i> Salir</button>
+    </div>
 
-              const scheduleData = [
+    <script>
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzHj0JGyuEWjI7B9KiLVQRTzNe4avfTEYK6GShiLkngSYUmpXXgCVe0fHKNhulFIqTyw/exec';
+
+        const scheduleData = [
             { id: 1, day: 'Lunes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
             { id: 2, day: 'Lunes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
             { id: 3, day: 'Lunes', time: '19:00', class: 'Judo', instructor: 'Sensei Pablo R', capacity: 25, enrolled: [] },
@@ -505,56 +696,118 @@
             { id: 17, day: 'Sabado', time: '11:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] }
         ];
 
-        // Tarjetas corregidas (IDs únicos y nombres coincidiendo)
-       const classesData = [
-           {
-             id: 1,
-            name: "Jiu Jitsu",
-            img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
-            instructor: "Prof. Carlos G"
-          },
-          {
-             id: 2,
-            name: "Jiu Jitsu Kid",
-            img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
-            instructor: "Prof. Sebastian B"
-          },
-          {
-            id: 3,
-            name: "Kick Boxing",
-            img: "https://drive.google.com/thumbnail?id=1FZThhq5kM1-CmAi4xlNUY-nrmPD5tzYW&sz=w1000",
-            instructor: "Coach Anibal R"
-          },
-          {
-            id: 4,
-            name: "Judo",
-            img: "https://drive.google.com/thumbnail?id=1Ls9eUpCTpi_B7EEyDi9q1DjefUryWWZO&sz=w1000",
-            instructor: "Sensei Pablo R"
+        const classesData = [
+            {
+                id: 1,
+                name: "Jiu Jitsu",
+                img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
+                instructor: "Prof. Carlos G"
+            },
+            {
+                id: 2,
+                name: "Jiu Jitsu Kid",
+                img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
+                instructor: "Prof. Sebastian B"
+            },
+            {
+                id: 3,
+                name: "Kick Boxing",
+                img: "https://drive.google.com/thumbnail?id=1FZThhq5kM1-CmAi4xlNUY-nrmPD5tzYW&sz=w1000",
+                instructor: "Coach Anibal R"
+            },
+            {
+                id: 4,
+                name: "Judo",
+                img: "https://drive.google.com/thumbnail?id=1Ls9eUpCTpi_B7EEyDi9q1DjefUryWWZO&sz=w1000",
+                instructor: "Sensei Pablo R"
             }
-          ];
+        ];
 
-
-        const PLAN_LIMITS = {
-            'Basic': 2,
-            'Premium': 4,
-            'VIP': 999 
+        const PLAN_CONFIG = {
+            "2x": { label: "Plan 2x", weeklyLimit: 2 },
+            "4x": { label: "Plan 4x", weeklyLimit: 4 },
+            "FULL": { label: "Plan Full", weeklyLimit: 6 },
+            "PRUEBA": { label: "Clase de prueba", weeklyLimit: 1 }
         };
 
-        let currentUser = null; 
+        const DEFAULT_STUDENTS = [
+            { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10" },
+            { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "4x", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05" },
+            { id: "s3", name: "Valentina Ríos", discipline: "Judo", plan: "2x", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28" },
+            { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01" }
+        ];
+
+        const STORAGE_KEYS = {
+            students: "edc_students",
+            enrollments: "edc_enrollments"
+        };
+
+        let currentUser = null;
         let isAdmin = false;
 
-        // --- FUNCIONES ---
         function openModal(id) { document.getElementById(id).classList.add('open'); }
         function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-        function showToast(msg) { 
-            const t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show'); 
-            setTimeout(() => t.classList.remove('show'), 3000); 
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
         }
 
         function openTrialModal() { openModal('trial-modal'); }
         function openLoginModal() { openModal('login-modal'); }
 
-        // Renderizar tarjetas
+        function loadStudents() {
+            const stored = localStorage.getItem(STORAGE_KEYS.students);
+            if (!stored) {
+                localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(DEFAULT_STUDENTS));
+                return [...DEFAULT_STUDENTS];
+            }
+            return JSON.parse(stored);
+        }
+
+        function saveStudents(students) {
+            localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(students));
+        }
+
+        function getWeekKey(date = new Date()) {
+            const temp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = temp.getUTCDay() || 7;
+            temp.setUTCDate(temp.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(temp.getUTCFullYear(), 0, 1));
+            const weekNum = Math.ceil((((temp - yearStart) / 86400000) + 1) / 7);
+            return `${temp.getUTCFullYear()}-W${weekNum}`;
+        }
+
+        function loadEnrollments() {
+            const stored = localStorage.getItem(STORAGE_KEYS.enrollments);
+            return stored ? JSON.parse(stored) : {};
+        }
+
+        function saveEnrollments(data) {
+            localStorage.setItem(STORAGE_KEYS.enrollments, JSON.stringify(data));
+        }
+
+        function getCurrentWeekEnrollments() {
+            const all = loadEnrollments();
+            const weekKey = getWeekKey();
+            return all[weekKey] || {};
+        }
+
+        function setCurrentWeekEnrollments(currentWeek) {
+            const all = loadEnrollments();
+            const weekKey = getWeekKey();
+            all[weekKey] = currentWeek;
+            saveEnrollments(all);
+        }
+
+        function hydrateScheduleEnrollments() {
+            const weekEnrollments = getCurrentWeekEnrollments();
+            scheduleData.forEach(cls => {
+                cls.enrolled = weekEnrollments[cls.id] || [];
+            });
+        }
+
         function renderCards() {
             const container = document.getElementById('classes-grid');
             container.innerHTML = '';
@@ -573,7 +826,6 @@
             });
         }
 
-        // HORARIOS PÚBLICOS
         function openPublicSchedule(disciplineName) {
             const tbody = document.getElementById('public-schedule-table');
             document.getElementById('public-schedule-title').innerText = `Horarios: ${disciplineName}`;
@@ -584,13 +836,11 @@
 
             const times = [...new Set(filteredSchedule.map(s => s.time))].sort();
 
-            // Cabecera Días
             let headerRow = '<tr><th>Hora</th>';
             days.forEach(d => headerRow += `<th>${d}</th>`);
             headerRow += '</tr>';
             tbody.innerHTML = headerRow;
 
-            // Filas de Horarios
             times.forEach(time => {
                 let row = `<tr><td><span class="tt-time">${time}</span></td>`;
                 days.forEach(day => {
@@ -615,12 +865,11 @@
             openModal('public-schedule-modal');
         }
 
-        // --- SUBMIT PRUEBA ---
         function submitTrial(e) {
             e.preventDefault();
             const btn = document.getElementById('btn-submit-trial');
             const originalText = btn.innerText;
-            
+
             btn.innerText = "ENVIANDO...";
             btn.disabled = true;
 
@@ -635,138 +884,172 @@
                 method: 'POST',
                 body: JSON.stringify(data)
             })
-            .then(response => response.text())
-            .then(text => {
-                try {
-                    const res = JSON.parse(text);
-                    if(res.result === "success") {
-                        showToast("Solicitud enviada correctamente");
-                        closeModal('trial-modal');
-                        document.querySelector('#trial-modal form').reset();
-                    } else {
-                        showToast("Error: " + (res.message || "Desconocido"));
+                .then(response => response.text())
+                .then(text => {
+                    try {
+                        const res = JSON.parse(text);
+                        if (res.result === "success") {
+                            showToast("Solicitud enviada correctamente");
+                            closeModal('trial-modal');
+                            document.querySelector('#trial-modal form').reset();
+                        } else {
+                            showToast("Error: " + (res.message || "Desconocido"));
+                        }
+                    } catch (e) {
+                        showToast("Datos guardados (Respuesta no JSON)");
                     }
-                } catch(e) {
-                    showToast("Datos guardados (Respuesta no JSON)");
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast("Error de conexión");
-            })
-            .finally(() => {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast("Error de conexión");
+                })
+                .finally(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                });
         }
-        function abrirCalendario() {
-  document.getElementById('calendar-title').innerText =
-    currentUser.role === 'admin'
-      ? 'Calendario General'
-      : `Mi Calendario`;
 
-  renderCalendar();
-  openModal('calendar-modal');
-}
-function mostrarMenuUsuario() {
-  const menu = document.getElementById('user-menu');
-  menu.classList.remove('hidden');
+        function getStudentByName(name) {
+            const students = loadStudents();
+            return students.find(student => student.name.toLowerCase() === name.toLowerCase());
+        }
 
-  // Botón admin
-  const btnAdmin = document.getElementById('btnAdminPanel');
-
-  if (currentUser.role === 'admin') {
-    btnAdmin.classList.remove('hidden');
-  } else {
-    btnAdmin.classList.add('hidden');
-  }
-}
-function cargarPerfilAlumno(uid) {
-  get(ref(db, `alumnos/${uid}`)).then(snapshot => {
-    if (!snapshot.exists()) {
-      showToast('Usuario no inscrito. Solo clase de prueba');
-      mostrarVistaPrueba();
-      return;
-    }
-
-    const data = snapshot.val();
-
-    currentUser = {
-      ...currentUser,
-      discipline: data.disciplina,
-      plan: data.plan,
-      paymentStatus: data.estadoPago
-    };
-
-    document.getElementById('calendar-title').innerText =
-      `Mi Calendario: ${data.disciplina}`;
-
-    document.getElementById('plan-name-display').innerText = data.plan;
-
-    mostrarMenuUsuario();
-  });
-}
-   // --- LOGIN ---
-   function handleLogin(e) {
+        function handleLogin(e) {
             e.preventDefault();
-            const name = document.getElementById('user-name').value;
-            const code = document.getElementById('access-code').value;
+            const name = document.getElementById('user-name').value.trim();
+            const code = document.getElementById('access-code').value.trim();
 
-            if (code === 'EDC2057') {
+            if (code === 'admin') {
                 isAdmin = true;
-                currentUser = {
-  uid: 'admin',
-  name: 'EDC2019',
-  role: 'admin'
-};
-                document.getElementById('calendar-title').innerText = `Mi Panel`;
-                document.getElementById('limit-info').style.display = 'block';
+                currentUser = { name: 'Administrador', role: 'admin' };
+                mostrarMenuUsuario();
+                closeModal('login-modal');
+                showToast('Bienvenido, admin');
+                return;
+            }
 
-                mostrarMenuUsuario(); 
-                cargarPerfilAlumno(auth.currentUser.uid);;
-
-            } else if (code === '123321') {
-                isAdmin = false;
-                currentUser = {
-  uid: name,
-  name: name,
-  role: 'member'
-};
-                document.getElementById('calendar-title').innerText = `Mi Calendario: ${discipline}`;
-                document.getElementById('plan-name-display').innerText = plan;
-                document.getElementById('limit-info').style.display = 'block';
-                renderCalendar();
-                openModal('calendar-modal');
-            } else {
+            if (code !== '123321') {
                 showToast('Clave incorrecta');
+                return;
+            }
+
+            const student = getStudentByName(name);
+            if (!student) {
+                showToast('Alumno no encontrado. Verifica el nombre.');
+                return;
+            }
+
+            isAdmin = false;
+            currentUser = { ...student, role: 'member' };
+            mostrarMenuUsuario();
+            closeModal('login-modal');
+            abrirCalendario();
+        }
+
+        function mostrarMenuUsuario() {
+            const menu = document.getElementById('user-menu');
+            menu.classList.remove('hidden');
+
+            const btnAdmin = document.getElementById('btnAdminPanel');
+            if (currentUser.role === 'admin') {
+                btnAdmin.classList.remove('hidden');
+            } else {
+                btnAdmin.classList.add('hidden');
             }
         }
-function abrirEstadoPago() {
-  cargarEstadoPagoUsuario(); // función que ya tienes o debes implementar
-  openModal('payment-modal');
-}
-function abrirPerfil() {
-  document.getElementById('profile-name').innerText = currentUser.name;
-  document.getElementById('profile-plan').innerText = currentUser.plan;
-  openModal('profile-modal');
-}
-function abrirPanelAdmin() {
-  cargarResumenAdmin();
-  cargarClasesAdmin();
-  cargarAlumnosAdmin();
-  openModal('admin-modal');
-}     
- // --- CALENDARIO ---
+
+        function cerrarSesion() {
+            currentUser = null;
+            isAdmin = false;
+            document.getElementById('user-menu').classList.add('hidden');
+            showToast('Sesión cerrada');
+        }
+
+        function abrirCalendario() {
+            document.getElementById('calendar-title').innerText =
+                currentUser.role === 'admin'
+                    ? 'Calendario General'
+                    : `Mi Calendario: ${currentUser.discipline}`;
+
+            renderCalendar();
+            openModal('calendar-modal');
+        }
+
+        function abrirEstadoPago() {
+            cargarEstadoPagoUsuario();
+            openModal('payment-modal');
+        }
+
+        function abrirPerfil() {
+            document.getElementById('profile-name').innerText = currentUser.name;
+            document.getElementById('profile-plan').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+            document.getElementById('profile-discipline').innerText = currentUser.discipline || '-';
+            document.getElementById('profile-payment').innerText = currentUser.paymentStatus || '-';
+            openModal('profile-modal');
+        }
+
+        function abrirPanelAdmin() {
+            cargarResumenAdmin();
+            cargarClasesAdmin();
+            cargarAlumnosAdmin();
+            openModal('admin-modal');
+        }
+
+        function cargarEstadoPagoUsuario() {
+            const card = document.getElementById('payment-status-card');
+            if (!currentUser || currentUser.role !== 'member') {
+                card.innerHTML = '<p class="muted">Solo disponible para alumnos.</p>';
+                return;
+            }
+
+            const status = currentUser.paymentStatus;
+            const statusText = status === 'pagado' ? 'Pagado' : status === 'pendiente' ? 'Pendiente' : 'Vencido';
+            const statusClass = status === 'pagado' ? 'status-paid' : status === 'pendiente' ? 'status-pending' : 'status-overdue';
+
+            card.innerHTML = `
+                <h3>Estado actual</h3>
+                <p><span class="status-pill ${statusClass}">${statusText}</span></p>
+                <p><strong>Próximo pago:</strong> ${currentUser.paymentDue || 'Por definir'}</p>
+                <p>${status === 'pendiente' ? 'Recuerda regularizar tu pago durante esta semana.' : status === 'vencido' ? 'Tu pago está vencido. Debes regularizar para volver a reservar.' : '¡Gracias por mantener tu pago al día!'}</p>
+            `;
+        }
+
         function renderCalendar() {
+            hydrateScheduleEnrollments();
             const grid = document.getElementById('calendar-grid');
+            const paymentBanner = document.getElementById('payment-banner');
+            const limitInfo = document.getElementById('limit-info');
             grid.innerHTML = '';
+
             const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
             let userCount = 0;
-            if (!isAdmin) {
+            let planLimit = 0;
+
+            if (!isAdmin && currentUser) {
                 userCount = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name)).length;
+                planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
+
                 document.getElementById('classes-count').innerText = userCount;
-                document.getElementById('max-classes').innerText = PLAN_LIMITS[currentUser.plan];
+                document.getElementById('max-classes').innerText = planLimit;
+                document.getElementById('plan-name-display').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+
+                limitInfo.classList.remove('hidden');
+
+                if (currentUser.paymentStatus === 'pendiente') {
+                    paymentBanner.classList.remove('hidden');
+                    paymentBanner.classList.remove('is-overdue');
+                    paymentBanner.innerText = 'Recuerda regularizar tu pago pendiente para evitar bloqueos de reserva.';
+                } else if (currentUser.paymentStatus === 'vencido') {
+                    paymentBanner.classList.remove('hidden');
+                    paymentBanner.classList.add('is-overdue');
+                    paymentBanner.innerText = 'Pago vencido: no podrás reservar hasta que el administrador confirme el pago.';
+                } else {
+                    paymentBanner.classList.add('hidden');
+                }
+            } else {
+                limitInfo.classList.add('hidden');
+                paymentBanner.classList.add('hidden');
             }
 
             days.forEach(day => {
@@ -775,20 +1058,30 @@ function abrirPanelAdmin() {
                 const relevantClasses = isAdmin ? dayClasses : dayClasses.filter(c => c.class === currentUser.discipline);
 
                 relevantClasses.forEach(c => {
-                    const isEnrolled = c.enrolled.some(u => u.name === currentUser.name);
+                    const isEnrolled = currentUser && c.enrolled.some(u => u.name === currentUser.name);
                     const isFull = c.enrolled.length >= c.capacity;
                     let btnClass = 'cal-btn reserve';
                     let btnText = 'RESERVAR';
                     let btnState = '';
                     let canReserve = true;
 
-                    if (isAdmin) { canReserve = false; }
-                    else {
-                        if (isEnrolled) { btnText = 'CANCELAR'; btnClass = 'cal-btn cancel'; }
-                        else if (isFull) { btnText = 'LLENO'; btnClass = 'cal-btn disabled'; }
-                        else if (userCount >= PLAN_LIMITS[currentUser.plan]) {
-                            btnText = 'LÍMITE ALCANZADO'; btnClass = 'cal-btn disabled'; canReserve = false;
-                        }
+                    if (isAdmin) {
+                        canReserve = false;
+                    } else if (currentUser.paymentStatus === 'vencido') {
+                        btnText = 'PAGO VENCIDO';
+                        btnClass = 'cal-btn disabled';
+                        canReserve = false;
+                    } else if (isEnrolled) {
+                        btnText = 'CANCELAR';
+                        btnClass = 'cal-btn cancel';
+                    } else if (isFull) {
+                        btnText = 'LLENO';
+                        btnClass = 'cal-btn disabled';
+                        canReserve = false;
+                    } else if (userCount >= planLimit) {
+                        btnText = 'LÍMITE ALCANZADO';
+                        btnClass = 'cal-btn disabled';
+                        canReserve = false;
                     }
 
                     if (!canReserve) btnState = 'disabled';
@@ -813,14 +1106,20 @@ function abrirPanelAdmin() {
 
         function toggleReservation(classId) {
             const cls = scheduleData.find(c => c.id === classId);
+            const planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
             const currentCount = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name)).length;
-            
+
+            if (currentUser.paymentStatus === 'vencido') {
+                showToast('No puedes reservar con pago vencido.');
+                return;
+            }
+
             if (cls.enrolled.some(u => u.name === currentUser.name)) {
                 cls.enrolled = cls.enrolled.filter(u => u.name !== currentUser.name);
                 showToast(`Cancelaste tu asistencia a ${cls.class}`);
             } else {
-                if (currentCount >= PLAN_LIMITS[currentUser.plan]) {
-                    showToast(`¡Límite alcanzado! Tu plan solo permite ${PLAN_LIMITS[currentUser.plan]} clases.`);
+                if (currentCount >= planLimit) {
+                    showToast(`¡Límite alcanzado! Tu plan permite ${planLimit} clases por semana.`);
                     return;
                 }
                 if (cls.enrolled.length >= cls.capacity) {
@@ -830,11 +1129,117 @@ function abrirPanelAdmin() {
                 cls.enrolled.push({ name: currentUser.name, plan: currentUser.plan });
                 showToast(`¡Reservado para ${cls.class}!`);
             }
+
+            const currentWeek = getCurrentWeekEnrollments();
+            currentWeek[cls.id] = cls.enrolled;
+            setCurrentWeekEnrollments(currentWeek);
             renderCalendar();
         }
 
-        renderCards();
+        function cargarResumenAdmin() {
+            const students = loadStudents();
+            document.getElementById('total-alumnos').innerText = students.length;
+            document.getElementById('total-pendiente').innerText = students.filter(s => s.paymentStatus === 'pendiente').length;
+            document.getElementById('total-vencido').innerText = students.filter(s => s.paymentStatus === 'vencido').length;
 
+            const counts = students.reduce((acc, s) => {
+                acc[s.discipline] = (acc[s.discipline] || 0) + 1;
+                return acc;
+            }, {});
+
+            const list = document.getElementById('disciplinas-count');
+            list.innerHTML = '';
+            Object.entries(counts).forEach(([disc, count]) => {
+                const li = document.createElement('li');
+                li.innerText = `${disc}: ${count}`;
+                list.appendChild(li);
+            });
+        }
+
+        function cargarClasesAdmin() {
+            hydrateScheduleEnrollments();
+            const container = document.getElementById('admin-classes-list');
+            container.innerHTML = '';
+            scheduleData.forEach(cls => {
+                const item = document.createElement('div');
+                item.style.marginBottom = '10px';
+                item.innerHTML = `
+                    <strong>${cls.day} ${cls.time}</strong> - ${cls.class}
+                    <div class="muted">${cls.enrolled.length}/${cls.capacity} alumnos: ${cls.enrolled.map(u => u.name).join(', ') || 'Sin alumnos'}</div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function cargarAlumnosAdmin() {
+            const students = loadStudents();
+            const enrollments = getCurrentWeekEnrollments();
+            const tbody = document.getElementById('admin-alumnos-table');
+            tbody.innerHTML = '';
+
+            students.forEach(student => {
+                const classCount = Object.values(enrollments).filter(list =>
+                    list.some(enrolled => enrolled.name === student.name)
+                ).length;
+
+                const statusClass = student.paymentStatus === 'pagado' ? 'status-paid' : student.paymentStatus === 'pendiente' ? 'status-pending' : 'status-overdue';
+                const statusText = student.paymentStatus === 'pagado' ? 'Pagado' : student.paymentStatus === 'pendiente' ? 'Pendiente' : 'Vencido';
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${student.name}</td>
+                    <td>${student.discipline}</td>
+                    <td>${PLAN_CONFIG[student.plan]?.label || student.plan}</td>
+                    <td>${classCount}</td>
+                    <td><span class="status-pill ${statusClass}">${statusText}</span></td>
+                    <td class="admin-actions">
+                        <button class="btn-paid" onclick="actualizarPago('${student.id}', 'pagado')">Pagado</button>
+                        <button class="btn-pending" onclick="actualizarPago('${student.id}', 'pendiente')">Pendiente</button>
+                        <button class="btn-overdue" onclick="actualizarPago('${student.id}', 'vencido')">Vencido</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function actualizarPago(studentId, status) {
+            const students = loadStudents();
+            const updated = students.map(student =>
+                student.id === studentId ? { ...student, paymentStatus: status } : student
+            );
+            saveStudents(updated);
+            if (currentUser && currentUser.id === studentId) {
+                currentUser.paymentStatus = status;
+            }
+            cargarResumenAdmin();
+            cargarAlumnosAdmin();
+            showToast('Estado de pago actualizado');
+        }
+
+        document.getElementById('form-new-alumno').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const students = loadStudents();
+            const newStudent = {
+                id: `s${Date.now()}`,
+                name: document.getElementById('new-nombre').value.trim(),
+                discipline: document.getElementById('new-disciplina').value,
+                plan: document.getElementById('new-plan').value,
+                paymentStatus: 'pendiente',
+                phone: document.getElementById('new-telefono').value.trim(),
+                email: document.getElementById('new-email').value.trim(),
+                paymentDue: new Date().toISOString().split('T')[0]
+            };
+
+            students.push(newStudent);
+            saveStudents(students);
+            document.getElementById('new-alumno-result').innerText = `Alumno ${newStudent.name} registrado.`;
+            document.getElementById('form-new-alumno').reset();
+            cargarResumenAdmin();
+            cargarAlumnosAdmin();
+        });
+
+        hydrateScheduleEnrollments();
+        renderCards();
     </script>
 </body>
 </html>
