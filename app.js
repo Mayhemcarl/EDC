@@ -537,6 +537,7 @@ async function abrirMisClases() {
 }
 
 async function abrirClasesAgendadasAdmin() {
+  await cargarClasesAgendadasAdmin();
   await cargarSolicitudesTrialAdmin();
   openModal("admin-trial-modal");
 }
@@ -835,6 +836,54 @@ async function cargarSolicitudesTrialAdmin() {
     `;
     container.appendChild(item);
   });
+}
+
+async function cargarClasesAgendadasAdmin() {
+  const container = document.getElementById("admin-classes-list");
+  if (!container) {
+    return;
+  }
+
+  await hydrateScheduleEnrollments();
+  container.innerHTML = "";
+
+  const dayOrder = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sabado"];
+  const scheduled = scheduleData.filter(cls => cls.enrolled.length > 0);
+
+  if (scheduled.length === 0) {
+    container.innerHTML = '<p class="muted">No hay clases agendadas esta semana.</p>';
+    return;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "admin-weekly-grid";
+
+  dayOrder.forEach(day => {
+    const dayClasses = scheduled.filter(cls => cls.day === day);
+    if (dayClasses.length === 0) {
+      return;
+    }
+    const dayCard = document.createElement("div");
+    dayCard.className = "admin-day-card";
+    dayCard.innerHTML = `<h4>${day}</h4>`;
+
+    dayClasses.forEach(cls => {
+      const attendees = cls.enrolled.map(u => u.name).join(", ") || "Sin alumnos";
+      const attendeeCount = cls.enrolled.length;
+      const item = document.createElement("div");
+      item.className = "admin-class-item";
+      item.innerHTML = `
+        <strong>${cls.time} - ${cls.class}</strong>
+        <span class="muted">${cls.instructor}</span><br>
+        <span>Alumnos (${attendeeCount}): ${attendees}</span>
+      `;
+      dayCard.appendChild(item);
+    });
+
+    grid.appendChild(dayCard);
+  });
+
+  container.appendChild(grid);
 }
 
 async function agregarAlumnoDesdeTrial(requestId) {
@@ -1192,11 +1241,23 @@ async function runMaintenance() {
 }
 
 async function init() {
-  await runMaintenance();
-  cachedStudents = await loadStudents();
-  cachedTrialRequests = await loadTrialRequests();
-  await hydrateScheduleEnrollments();
   renderCards();
+  updatePublicButtons();
+  try {
+    await runMaintenance();
+    cachedStudents = await loadStudents();
+    cachedTrialRequests = await loadTrialRequests();
+    await hydrateScheduleEnrollments();
+  } catch (error) {
+    console.error("Error cargando datos iniciales:", error);
+    cachedStudents = cachedStudents.length ? cachedStudents : [...DEFAULT_STUDENTS];
+    cachedTrialRequests = cachedTrialRequests.length ? cachedTrialRequests : [];
+    scheduleData.forEach(cls => {
+      if (!Array.isArray(cls.enrolled)) {
+        cls.enrolled = [];
+      }
+    });
+  }
   updatePublicButtons();
 
   const disciplineSelect = document.getElementById("new-disciplina");
