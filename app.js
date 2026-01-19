@@ -1,25 +1,14 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  get,
-  set,
-  update
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
-  authDomain: "elemental-dojo-curico.firebaseapp.com",
-  projectId: "elemental-dojo-curico",
-  storageBucket: "elemental-dojo-curico.firebasestorage.app",
-  messagingSenderId: "39532293146",
-  appId: "1:39532293146:web:0c44ace849aeed5f5335a3"
-};
+const SUPABASE_URL = "https://your-project.supabase.co";
+const SUPABASE_ANON_KEY = "your-anon-key";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzHj0JGyuEWjI7B9KiLVQRTzNe4avfTEYK6GShiLkngSYUmpXXgCVe0fHKNhulFIqTyw/exec";
+// Tablas esperadas en Supabase:
+// - students (id, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride)
+// - weekly_enrollments (week_key, enrollments)
+// - trial_requests (id, nombre, disciplina, telefono, email, fecha)
+// - meta (id, lastWeeklyReset, lastPaymentResetMonth, lastPaymentOverdueMonth)
 
 const ADMIN_USER = "EDC2019";
 const ADMIN_CODE = "EDC2057";
@@ -96,18 +85,24 @@ const DEFAULT_STUDENTS = [
   { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
 ];
 
-const DATA_PATHS = {
+const SUPABASE_TABLES = {
   students: "students",
-  enrollments: "enrollments",
-  trialRequests: "trialRequests",
+  weeklyEnrollments: "weekly_enrollments",
+  trialRequests: "trial_requests",
   meta: "meta"
 };
+
+const META_ID = "system";
 
 let currentUser = null;
 let isAdmin = false;
 let cachedStudents = [];
 let cachedTrialRequests = [];
 let cachedEnrollments = {};
+
+function isSupabaseConfigured() {
+  return !SUPABASE_URL.includes("your-project") && !SUPABASE_ANON_KEY.includes("your-anon-key");
+}
 
 function openModal(id) { document.getElementById(id).classList.add("open"); }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
@@ -122,34 +117,64 @@ function openTrialModal() { openModal("trial-modal"); }
 function openLoginModal() { openModal("login-modal"); }
 
 async function loadStudents() {
-  const snapshot = await get(ref(database, DATA_PATHS.students));
-  if (!snapshot.exists()) {
+  if (!isSupabaseConfigured()) {
+    return [...DEFAULT_STUDENTS];
+  }
+  const { data, error } = await supabase.from(SUPABASE_TABLES.students).select("*");
+  if (error) {
+    throw error;
+  }
+  if (!data || data.length === 0) {
     await saveStudents(DEFAULT_STUDENTS);
     return [...DEFAULT_STUDENTS];
   }
-  return Object.values(snapshot.val());
+  return data;
 }
 
 async function saveStudents(students) {
-  const studentMap = students.reduce((acc, student) => {
-    acc[student.id] = student;
-    return acc;
-  }, {});
-  await set(ref(database, DATA_PATHS.students), studentMap);
+  if (!isSupabaseConfigured()) {
+    cachedStudents = [...students];
+    return;
+  }
+  const { error: deleteError } = await supabase.from(SUPABASE_TABLES.students).delete().neq("id", "");
+  if (deleteError) {
+    throw deleteError;
+  }
+  if (students.length > 0) {
+    const { error } = await supabase.from(SUPABASE_TABLES.students).insert(students);
+    if (error) {
+      throw error;
+    }
+  }
   cachedStudents = [...students];
 }
 
 async function loadTrialRequests() {
-  const snapshot = await get(ref(database, DATA_PATHS.trialRequests));
-  return snapshot.exists() ? Object.values(snapshot.val()) : [];
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+  const { data, error } = await supabase.from(SUPABASE_TABLES.trialRequests).select("*");
+  if (error) {
+    throw error;
+  }
+  return data || [];
 }
 
 async function saveTrialRequests(requests) {
-  const requestMap = requests.reduce((acc, req) => {
-    acc[req.id] = req;
-    return acc;
-  }, {});
-  await set(ref(database, DATA_PATHS.trialRequests), requestMap);
+  if (!isSupabaseConfigured()) {
+    cachedTrialRequests = [...requests];
+    return;
+  }
+  const { error: deleteError } = await supabase.from(SUPABASE_TABLES.trialRequests).delete().neq("id", "");
+  if (deleteError) {
+    throw deleteError;
+  }
+  if (requests.length > 0) {
+    const { error } = await supabase.from(SUPABASE_TABLES.trialRequests).insert(requests);
+    if (error) {
+      throw error;
+    }
+  }
   cachedTrialRequests = [...requests];
 }
 
@@ -169,24 +194,34 @@ function getWeekKey(date = new Date()) {
   return `${temp.getUTCFullYear()}-W${weekNum}`;
 }
 
-async function loadEnrollments() {
-  const snapshot = await get(ref(database, DATA_PATHS.enrollments));
-  return snapshot.exists() ? snapshot.val() : {};
-}
-
-async function saveEnrollments(data) {
-  await set(ref(database, DATA_PATHS.enrollments), data);
-}
-
 async function getCurrentWeekEnrollments() {
-  const all = await loadEnrollments();
   const weekKey = getWeekKey();
-  return all[weekKey] || {};
+  if (!isSupabaseConfigured()) {
+    return {};
+  }
+  const { data, error } = await supabase
+    .from(SUPABASE_TABLES.weeklyEnrollments)
+    .select("enrollments")
+    .eq("week_key", weekKey)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data?.enrollments || {};
 }
 
 async function setCurrentWeekEnrollments(currentWeek) {
   const weekKey = getWeekKey();
-  await set(ref(database, `${DATA_PATHS.enrollments}/${weekKey}`), currentWeek);
+  if (!isSupabaseConfigured()) {
+    cachedEnrollments = currentWeek;
+    return;
+  }
+  const { error } = await supabase
+    .from(SUPABASE_TABLES.weeklyEnrollments)
+    .upsert({ week_key: weekKey, enrollments: currentWeek }, { onConflict: "week_key" });
+  if (error) {
+    throw error;
+  }
   cachedEnrollments = currentWeek;
 }
 
@@ -270,59 +305,30 @@ async function submitTrial(e) {
     email: document.getElementById("t-email").value
   };
 
-  fetch(GOOGLE_SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify(data)
-  })
-    .then(response => response.text())
-    .then(async text => {
-      try {
-        const res = JSON.parse(text);
-        if (res.result === "success") {
-          const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
-          requests.unshift({
-            id: `t${Date.now()}`,
-            nombre: data.nombre,
-            disciplina: data.disciplina,
-            telefono: data.telefono,
-            email: data.email,
-            fecha: new Date().toISOString()
-          });
-          await saveTrialRequests(requests);
-          showToast("Solicitud enviada correctamente");
-          closeModal("trial-modal");
-          document.querySelector("#trial-modal form").reset();
-          if (isAdmin) {
-            await cargarSolicitudesTrialAdmin();
-          }
-        } else {
-          showToast("Error: " + (res.message || "Desconocido"));
-        }
-      } catch (error) {
-        const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
-        requests.unshift({
-          id: `t${Date.now()}`,
-          nombre: data.nombre,
-          disciplina: data.disciplina,
-          telefono: data.telefono,
-          email: data.email,
-          fecha: new Date().toISOString()
-        });
-        await saveTrialRequests(requests);
-        showToast("Datos guardados (Respuesta no JSON)");
-        if (isAdmin) {
-          await cargarSolicitudesTrialAdmin();
-        }
-      }
-    })
-    .catch(error => {
-      console.error("Error:", error);
-      showToast("Error de conexión");
-    })
-    .finally(() => {
-      btn.innerText = originalText;
-      btn.disabled = false;
+  try {
+    const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
+    requests.unshift({
+      id: `t${Date.now()}`,
+      nombre: data.nombre,
+      disciplina: data.disciplina,
+      telefono: data.telefono,
+      email: data.email,
+      fecha: new Date().toISOString()
     });
+    await saveTrialRequests(requests);
+    showToast("Solicitud enviada correctamente");
+    closeModal("trial-modal");
+    document.querySelector("#trial-modal form").reset();
+    if (isAdmin) {
+      await cargarSolicitudesTrialAdmin();
+    }
+  } catch (error) {
+    console.error("Error guardando solicitud:", error);
+    showToast("No se pudo guardar la solicitud.");
+  } finally {
+    btn.innerText = originalText;
+    btn.disabled = false;
+  }
 }
 
 async function getStudentsByName(name) {
@@ -1204,6 +1210,33 @@ async function registrarNuevoAlumno(e) {
   await cargarAlumnosNoPagadosAdmin();
 }
 
+async function loadMeta() {
+  if (!isSupabaseConfigured()) {
+    return { id: META_ID };
+  }
+  const { data, error } = await supabase
+    .from(SUPABASE_TABLES.meta)
+    .select("*")
+    .eq("id", META_ID)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data || { id: META_ID };
+}
+
+async function saveMeta(meta) {
+  if (!isSupabaseConfigured()) {
+    return;
+  }
+  const { error } = await supabase
+    .from(SUPABASE_TABLES.meta)
+    .upsert(meta, { onConflict: "id" });
+  if (error) {
+    throw error;
+  }
+}
+
 async function runWeeklyReset(meta) {
   const today = new Date();
   if (today.getDay() !== 0) {
@@ -1213,9 +1246,9 @@ async function runWeeklyReset(meta) {
   if (meta.lastWeeklyReset === weekKey) {
     return meta;
   }
-  await set(ref(database, DATA_PATHS.enrollments), { [weekKey]: {} });
+  await setCurrentWeekEnrollments({});
   const updatedMeta = { ...meta, lastWeeklyReset: weekKey };
-  await update(ref(database, DATA_PATHS.meta), { lastWeeklyReset: weekKey });
+  await saveMeta(updatedMeta);
   cachedEnrollments = {};
   return updatedMeta;
 }
@@ -1232,11 +1265,11 @@ async function runMonthlyPaymentReset(meta) {
       paymentDue: today.toISOString().split("T")[0]
     }));
     await saveStudents(resetStudents);
-    await update(ref(database, DATA_PATHS.meta), { lastPaymentResetMonth: monthKey });
     meta.lastPaymentResetMonth = monthKey;
+    await saveMeta({ ...meta, lastPaymentResetMonth: monthKey });
   }
 
-  if (today.getDate() >= 6 && meta.lastPaymentOverdueMonth !== monthKey) {
+  if (today.getDate() >= 5 && meta.lastPaymentOverdueMonth !== monthKey) {
     const students = await loadStudents();
     const overdueStudents = students.map(student =>
       student.paymentStatus === "pendiente"
@@ -1244,16 +1277,15 @@ async function runMonthlyPaymentReset(meta) {
         : student
     );
     await saveStudents(overdueStudents);
-    await update(ref(database, DATA_PATHS.meta), { lastPaymentOverdueMonth: monthKey });
     meta.lastPaymentOverdueMonth = monthKey;
+    await saveMeta({ ...meta, lastPaymentOverdueMonth: monthKey });
   }
 
   return meta;
 }
 
 async function runMaintenance() {
-  const metaSnapshot = await get(ref(database, DATA_PATHS.meta));
-  let meta = metaSnapshot.exists() ? metaSnapshot.val() : {};
+  let meta = await loadMeta();
   meta = await runWeeklyReset(meta);
   await runMonthlyPaymentReset(meta);
 }
@@ -1262,6 +1294,9 @@ async function init() {
   renderCards();
   updatePublicButtons();
   try {
+    if (!isSupabaseConfigured()) {
+      showToast("Configura Supabase para cargar datos reales.");
+    }
     await runMaintenance();
     cachedStudents = await loadStudents();
     cachedTrialRequests = await loadTrialRequests();
