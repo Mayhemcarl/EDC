@@ -1,32 +1,12 @@
-/*************************************************
- * FIREBASE IMPORTS (SDK MODULAR)
- *************************************************/
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-
-import {
-  getAuth,
-  onAuthStateChanged,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-
 import {
   getDatabase,
   ref,
-  set,
   get,
+  set,
   update
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
-import {
-  getMessaging,
-  getToken
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-messaging.js";
 
-/*************************************************
- * FIREBASE CONFIG
- *************************************************/
 const firebaseConfig = {
   apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
   authDomain: "elemental-dojo-curico.firebaseapp.com",
@@ -36,249 +16,1223 @@ const firebaseConfig = {
   appId: "1:39532293146:web:0c44ace849aeed5f5335a3"
 };
 
-const VAPID_KEY = "el0gWPKwbMfQd_KnavjTjR9HK9H7UV1ZOUgtNRKYqLI";
-
-/*************************************************
- * INIT
- *************************************************/
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const database = getDatabase(app);
-const messaging = getMessaging(app);
-import { getDatabase, ref, set } from "firebase/database";
-function cargarPlanesIniciales() {
-  const planes = {
-    jiu_jitsu: {
-      basico: { nombre: "Básico Jiu Jitsu", clasesSemanales: 3 },
-      full: { nombre: "Full Jiu Jitsu", clasesSemanales: 10 },
-      mujeres: { nombre: "Básico Jiu Jitsu", clasesSemanales: 3 },
-      rebaja: { nombre: "Rebaja Jiu Jitsu", clasesSemanales: 5 },
-      especial: { nombre: "Especial Jiu Jitsu", clasesSemanales: 3 }
-    },
-    judo: {
-      basico: { nombre: " Judo", clasesSemanales: 2 }
-    },
-    kick_boxing: {
-      basico: { nombre: "Básico Kick Boxing", clasesSemanales: 3 }
-    }
-  };
 
-  set(ref(database, "planes"), planes);
-}
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzHj0JGyuEWjI7B9KiLVQRTzNe4avfTEYK6GShiLkngSYUmpXXgCVe0fHKNhulFIqTyw/exec";
 
-/*************************************************
- * HELPERS
- *************************************************/
-const $ = id => document.getElementById(id);
-const log = (...a) => $("log") && ($("log").textContent += a.join(" ") + "\n");
+const ADMIN_USER = "EDC2019";
+const ADMIN_CODE = "EDC2057";
+
+const scheduleData = [
+  { id: 1, day: "Lunes", time: "18:30", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 2, day: "Lunes", time: "20:15", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 3, day: "Lunes", time: "19:00", class: "Judo", instructor: "Sensei Pablo R", capacity: 25, enrolled: [] },
+  { id: 4, day: "Lunes", time: "21:00", class: "Kick Boxing", instructor: "Coach Anibal R", capacity: 25, enrolled: [] },
+  { id: 5, day: "Martes", time: "18:30", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 6, day: "Martes", time: "20:15", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 7, day: "Miércoles", time: "18:30", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 8, day: "Miércoles", time: "20:15", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 9, day: "Miércoles", time: "21:00", class: "Kick Boxing", instructor: "Coach Anibal R", capacity: 25, enrolled: [] },
+  { id: 10, day: "Jueves", time: "19:00", class: "Judo", instructor: "Sensei Pablo R", capacity: 25, enrolled: [] },
+  { id: 11, day: "Jueves", time: "18:30", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 12, day: "Jueves", time: "20:15", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 13, day: "Jueves", time: "21:00", class: "Kick Boxing", instructor: "Coach Anibal R", capacity: 25, enrolled: [] },
+  { id: 14, day: "Viernes", time: "18:30", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 15, day: "Viernes", time: "20:15", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
+  { id: 16, day: "Sabado", time: "10:30", class: "Jiu Jitsu Kid", instructor: "Prof. Sebastian B", capacity: 25, enrolled: [] },
+  { id: 17, day: "Sabado", time: "11:30", class: "OpenMAT", instructor: "Equipo EDC", capacity: 40, enrolled: [], openMatOnly: true, countsTowardLimit: false }
+];
+
+const classesData = [
+  {
+    id: 1,
+    name: "Jiu Jitsu",
+    img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
+    instructor: "Prof. Carlos G"
+  },
+  {
+    id: 2,
+    name: "Jiu Jitsu Kid",
+    img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
+    instructor: "Prof. Sebastian B"
+  },
+  {
+    id: 3,
+    name: "Kick Boxing",
+    img: "https://drive.google.com/thumbnail?id=1FZThhq5kM1-CmAi4xlNUY-nrmPD5tzYW&sz=w1000",
+    instructor: "Coach Anibal R"
+  },
+  {
+    id: 4,
+    name: "Judo",
+    img: "https://drive.google.com/thumbnail?id=1Ls9eUpCTpi_B7EEyDi9q1DjefUryWWZO&sz=w1000",
+    instructor: "Sensei Pablo R"
+  }
+];
+
+const PLAN_CONFIG = {
+  "JJ_STD": { label: "Plan estándar Jiu-Jitsu", weeklyLimit: 3 },
+  "JJ_KID": { label: "Plan estándar Jiu-Jitsu", weeklyLimit: 1 },
+  "JJ_FULL": { label: "Plan full Jiu-Jitsu", weeklyLimit: 10 },
+  "JJ_REBAJA": { label: "Plan rebaja Jiu-Jitsu", weeklyLimit: 5 },
+  "JJ_MUJERES": { label: "Plan mujeres Jiu-Jitsu", weeklyLimit: 3 },
+  "JD_STD": { label: "Plan estándar Judo", weeklyLimit: 2 },
+  "KB_STD": { label: "Plan estándar Kickboxing", weeklyLimit: 3 },
+  "PRUEBA": { label: "Clase de prueba", weeklyLimit: 1 }
+};
+
+const DISCIPLINE_PLANS = {
+  "Jiu Jitsu": ["JJ_STD", "JJ_FULL", "JJ_REBAJA", "JJ_MUJERES"],
+  "Jiu Jitsu Kid": ["JJ_KID"],
+  "Judo": ["JD_STD"],
+  "Kick Boxing": ["KB_STD"]
+};
+
+const DEFAULT_STUDENTS = [
+  { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "JJ_FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
+  { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "KB_STD", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
+  { id: "s3", name: "Valentina Ríos", discipline: "Judo", plan: "JD_STD", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28", accessCode: "JD-2051" },
+  { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
+];
+
+const DATA_PATHS = {
+  students: "students",
+  enrollments: "enrollments",
+  trialRequests: "trialRequests",
+  meta: "meta"
+};
 
 let currentUser = null;
-let currentProfile = null;
-function resetMensual() {
-  const hoy = new Date();
-  const dia = hoy.getDate();
+let isAdmin = false;
+let cachedStudents = [];
+let cachedTrialRequests = [];
+let cachedEnrollments = {};
 
-  if (dia !== 1) return;
-
-  get(ref(db, "alumnos")).then(snapshot => {
-    snapshot.forEach(child => {
-      const alumno = child.val();
-
-      update(ref(db, `alumnos/${child.key}`), {
-        estadoPago: "pendiente",
-        clasesDisponibles: alumno.clasesDisponibles // se reasigna al pagar
-      });
-    });
-  });
-}
-/*************************************************
- * AUTH
- *************************************************/
-$("btnSignup")?.addEventListener("click", async () => {
-  const email = $("email").value.trim();
-  const pass = $("pass").value.trim();
-  const name = $("name").value.trim() || "Alumno";
-
-  const cred = await createUserWithEmailAndPassword(auth, email, pass);
-  await updateProfile(cred.user, { displayName: name });
-
-  await setDoc(doc(db, "users", cred.user.uid), {
-    nombre: name,
-    role: "student",
-    estadoPago: "Pendiente",
-    createdAt: serverTimestamp()
-  });
-
-  log("Cuenta creada:", cred.user.uid);
-});
-
-$("btnLogin")?.addEventListener("click", async () => {
-  await signInWithEmailAndPassword(
-    auth,
-    $("email").value.trim(),
-    $("pass").value.trim()
-  );
-});
-
-$("btnLogout")?.addEventListener("click", async () => {
-  await signOut(auth);
-});
-
-/*************************************************
- * AUTH STATE
- *************************************************/
-onAuthStateChanged(auth, async user => {
-  currentUser = user;
-  if (!user) return;
-
-  const snap = await getDoc(doc(db, "users", user.uid));
-  currentProfile = snap.data();
-
-  $("tabAdmin")?.classList.toggle("hidden", currentProfile.role !== "admin");
-
-  await renderTodaySessions();
-});
-
-/*************************************************
- * VALIDACIÓN DE PAGO
- *************************************************/
-async function puedeAgendar(uid) {
-  const snap = await getDoc(doc(db, "users", uid));
-  return snap.exists() && snap.data().estadoPago === "Pagado";
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.innerText = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
 }
 
-/*************************************************
- * CLASES / SESIONES
- *************************************************/
-async function renderTodaySessions() {
-  if (!currentUser) return;
+function openTrialModal() { openModal("trial-modal"); }
+function openLoginModal() { openModal("login-modal"); }
 
-  const now = new Date();
-  const start = new Date(now.setHours(0,0,0,0));
-  const end = new Date(now.setHours(23,59,59,999));
+async function loadStudents() {
+  const snapshot = await get(ref(database, DATA_PATHS.students));
+  if (!snapshot.exists()) {
+    await saveStudents(DEFAULT_STUDENTS);
+    return [...DEFAULT_STUDENTS];
+  }
+  return Object.values(snapshot.val());
+}
 
-  const q = query(
-    collection(db, "sessions"),
-    where("startAt", ">=", Timestamp.fromDate(start)),
-    where("startAt", "<=", Timestamp.fromDate(end)),
-    orderBy("startAt")
-  );
+async function saveStudents(students) {
+  const studentMap = students.reduce((acc, student) => {
+    acc[student.id] = student;
+    return acc;
+  }, {});
+  await set(ref(database, DATA_PATHS.students), studentMap);
+  cachedStudents = [...students];
+}
 
-  const snap = await getDocs(q);
-  $("todaySessions").innerHTML = "";
+async function loadTrialRequests() {
+  const snapshot = await get(ref(database, DATA_PATHS.trialRequests));
+  return snapshot.exists() ? Object.values(snapshot.val()) : [];
+}
 
-  snap.forEach(d => {
-    const s = d.data();
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <b>${s.classId}</b>
-      <button>Inscribirme</button>
+async function saveTrialRequests(requests) {
+  const requestMap = requests.reduce((acc, req) => {
+    acc[req.id] = req;
+    return acc;
+  }, {});
+  await set(ref(database, DATA_PATHS.trialRequests), requestMap);
+  cachedTrialRequests = [...requests];
+}
+
+function generateAccessCode(student) {
+  if (student?.accessCode) return student.accessCode;
+  const prefix = (student?.discipline || "EDC").split(" ")[0].substring(0, 2).toUpperCase();
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `${prefix}-${random}`;
+}
+
+function getWeekKey(date = new Date()) {
+  const temp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = temp.getUTCDay() || 7;
+  temp.setUTCDate(temp.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(temp.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil((((temp - yearStart) / 86400000) + 1) / 7);
+  return `${temp.getUTCFullYear()}-W${weekNum}`;
+}
+
+async function loadEnrollments() {
+  const snapshot = await get(ref(database, DATA_PATHS.enrollments));
+  return snapshot.exists() ? snapshot.val() : {};
+}
+
+async function saveEnrollments(data) {
+  await set(ref(database, DATA_PATHS.enrollments), data);
+}
+
+async function getCurrentWeekEnrollments() {
+  const all = await loadEnrollments();
+  const weekKey = getWeekKey();
+  return all[weekKey] || {};
+}
+
+async function setCurrentWeekEnrollments(currentWeek) {
+  const weekKey = getWeekKey();
+  await set(ref(database, `${DATA_PATHS.enrollments}/${weekKey}`), currentWeek);
+  cachedEnrollments = currentWeek;
+}
+
+async function hydrateScheduleEnrollments() {
+  const weekEnrollments = await getCurrentWeekEnrollments();
+  cachedEnrollments = weekEnrollments;
+  scheduleData.forEach(cls => {
+    cls.enrolled = weekEnrollments[cls.id] || [];
+  });
+}
+
+function renderCards() {
+  const container = document.getElementById("classes-grid");
+  container.innerHTML = "";
+  classesData.forEach(cls => {
+    container.innerHTML += `
+      <div class="class-card" onclick="openPublicSchedule('${cls.name}')">
+        <div class="card-img" style="background-image: url('${cls.img}')">
+          <div class="card-overlay"><h3 class="card-title">${cls.name}</h3></div>
+        </div>
+        <div class="card-content">
+          <div style="color:#555; font-weight:600;">Profesor: ${cls.instructor}</div>
+          <div class="click-hint">Ver Horarios <i class="fas fa-chevron-down"></i></div>
+        </div>
+      </div>
     `;
-
-    card.querySelector("button").onclick = async () => {
-      if (!(await puedeAgendar(currentUser.uid))) {
-        alert("Estado de pago vencido.");
-        return;
-      }
-
-      await setDoc(
-        doc(db, "sessions", d.id, "enrollments", currentUser.uid),
-        {
-          uid: currentUser.uid,
-          displayName: currentUser.displayName,
-          createdAt: serverTimestamp()
-        }
-      );
-      alert("Inscripción exitosa");
-    };
-
-    $("todaySessions").appendChild(card);
   });
 }
 
-/*************************************************
- * ADMIN – ALUMNOS
- *************************************************/
-
-async function cargarAlumnosAdmin() {
-  const snap = await getDocs(collection(db, "users"));
-  const tbody = $("admin-alumnos-table");
+function openPublicSchedule(disciplineName) {
+  const tbody = document.getElementById("public-schedule-table");
+  document.getElementById("public-schedule-title").innerText = `Horarios: ${disciplineName}`;
   tbody.innerHTML = "";
 
-  snap.forEach(d => {
-    const u = d.data();
-    tbody.innerHTML += `
-      <tr>
-        <td>${u.nombre}</td>
-        <td>${u.role}</td>
-        <td>
-          <select data-id="${d.id}">
-            <option ${u.estadoPago==="Pendiente"?"selected":""}>Pendiente</option>
-            <option ${u.estadoPago==="Pagado"?"selected":""}>Pagado</option>
-            <option ${u.estadoPago==="Vencido"?"selected":""}>Vencido</option>
-          </select>
-        </td>
-      </tr>
-    `;
+  const filteredSchedule = scheduleData.filter(s => s.class === disciplineName);
+  const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sabado"];
+
+  const times = [...new Set(filteredSchedule.map(s => s.time))].sort();
+
+  let headerRow = "<tr><th>Hora</th>";
+  days.forEach(d => headerRow += `<th>${d}</th>`);
+  headerRow += "</tr>";
+  tbody.innerHTML = headerRow;
+
+  times.forEach(time => {
+    let row = `<tr><td><span class="tt-time">${time}</span></td>`;
+    days.forEach(day => {
+      const cls = filteredSchedule.find(s => s.day === day && s.time === time);
+      if (cls) {
+        const spots = cls.capacity - cls.enrolled.length;
+        row += `
+          <td>
+            <span class="tt-header">${cls.class}</span>
+            <span class="tt-prof">${cls.instructor}</span>
+            <span class="tt-spots">${spots} cupos</span>
+          </td>
+        `;
+      } else {
+        row += "<td>-</td>";
+      }
+    });
+    row += "</tr>";
+    tbody.innerHTML += row;
   });
 
-  tbody.querySelectorAll("select").forEach(sel => {
-    sel.onchange = async () => {
-      await updateDoc(doc(db, "users", sel.dataset.id), {
-        estadoPago: sel.value
-      });
-    };
-  });
+  openModal("public-schedule-modal");
 }
-function actualizarAlumno(uid, nuevoEstado, disciplina, planId) {
 
-  const planRef = ref(db, `planes/${disciplina}/${planId}`);
+async function submitTrial(e) {
+  e.preventDefault();
+  const btn = document.getElementById("btn-submit-trial");
+  const originalText = btn.innerText;
 
-  get(planRef).then(snapshot => {
-    if (!snapshot.exists()) {
-      alert("Plan no válido");
-      return;
+  btn.innerText = "ENVIANDO...";
+  btn.disabled = true;
+
+  const data = {
+    nombre: document.getElementById("t-name").value,
+    disciplina: document.getElementById("t-disc").value,
+    telefono: document.getElementById("t-phone").value,
+    email: document.getElementById("t-email").value
+  };
+
+  fetch(GOOGLE_SCRIPT_URL, {
+    method: "POST",
+    body: JSON.stringify(data)
+  })
+    .then(response => response.text())
+    .then(async text => {
+      try {
+        const res = JSON.parse(text);
+        if (res.result === "success") {
+          const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
+          requests.unshift({
+            id: `t${Date.now()}`,
+            nombre: data.nombre,
+            disciplina: data.disciplina,
+            telefono: data.telefono,
+            email: data.email,
+            fecha: new Date().toISOString()
+          });
+          await saveTrialRequests(requests);
+          showToast("Solicitud enviada correctamente");
+          closeModal("trial-modal");
+          document.querySelector("#trial-modal form").reset();
+          if (isAdmin) {
+            await cargarSolicitudesTrialAdmin();
+          }
+        } else {
+          showToast("Error: " + (res.message || "Desconocido"));
+        }
+      } catch (error) {
+        const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
+        requests.unshift({
+          id: `t${Date.now()}`,
+          nombre: data.nombre,
+          disciplina: data.disciplina,
+          telefono: data.telefono,
+          email: data.email,
+          fecha: new Date().toISOString()
+        });
+        await saveTrialRequests(requests);
+        showToast("Datos guardados (Respuesta no JSON)");
+        if (isAdmin) {
+          await cargarSolicitudesTrialAdmin();
+        }
+      }
+    })
+    .catch(error => {
+      console.error("Error:", error);
+      showToast("Error de conexión");
+    })
+    .finally(() => {
+      btn.innerText = originalText;
+      btn.disabled = false;
+    });
+}
+
+async function getStudentsByName(name) {
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  return students.filter(student => student.name.toLowerCase() === name.toLowerCase());
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const name = document.getElementById("user-name").value.trim();
+  const code = document.getElementById("access-code").value.trim();
+
+  if (name === ADMIN_USER && (code === ADMIN_CODE || code === name)) {
+    isAdmin = true;
+    currentUser = { name: "Administrador", role: "admin" };
+    mostrarMenuUsuario();
+    updatePublicButtons();
+    closeModal("login-modal");
+    showToast("Bienvenido, admin");
+    return;
+  }
+
+  if (code === ADMIN_CODE || name === ADMIN_USER) {
+    showToast("Credenciales de administrador incorrectas");
+    return;
+  }
+
+  const matchingStudents = await getStudentsByName(name);
+  if (matchingStudents.length === 0) {
+    showToast("Alumno no encontrado. Verifica el nombre.");
+    return;
+  }
+
+  const normalizedCode = code.toLowerCase();
+  const nameKey = name.toLowerCase();
+  const matchedStudent = matchingStudents.find(student => {
+    const accessKey = (student.accessCode || "").toLowerCase();
+    return normalizedCode === nameKey || (accessKey && normalizedCode === accessKey);
+  });
+
+  if (matchingStudents.length > 1 && normalizedCode === nameKey) {
+    showToast("Hay alumnos con el mismo nombre. Usa tu clave de acceso para ingresar.");
+    return;
+  }
+
+  if (!matchedStudent || !normalizedCode) {
+    showToast("Clave incorrecta");
+    return;
+  }
+
+  isAdmin = false;
+  currentUser = { ...matchedStudent, role: "member" };
+  mostrarMenuUsuario();
+  updatePublicButtons();
+  closeModal("login-modal");
+  await abrirCalendario();
+}
+
+function isOpenMatEligible(user) {
+  return Boolean(user && user.discipline === "Jiu Jitsu");
+}
+
+function getWeeklyLimitForStudent(student) {
+  if (!student) return 0;
+  if (typeof student.weeklyLimitOverride === "number") {
+    return Math.max(0, student.weeklyLimitOverride);
+  }
+  return PLAN_CONFIG[student.plan]?.weeklyLimit || 0;
+}
+
+function isClassRelevantForUser(cls, user) {
+  if (!user) return false;
+  if (cls.openMatOnly) return isOpenMatEligible(user);
+  return cls.class === user.discipline;
+}
+
+function updatePublicButtons() {
+  const loginButton = document.getElementById("btn-login");
+  const trialButton = document.getElementById("btn-trial");
+  const shouldShow = !currentUser;
+  if (loginButton) loginButton.classList.toggle("hidden", !shouldShow);
+  if (trialButton) trialButton.classList.toggle("hidden", !shouldShow);
+}
+
+function getUserWeeklyCount(user) {
+  if (!user) return 0;
+  return scheduleData.filter(c =>
+    c.countsTowardLimit !== false && c.enrolled.some(u => u.name === user.name)
+  ).length;
+}
+
+function mostrarMenuUsuario() {
+  const menu = document.getElementById("user-menu");
+  menu.classList.remove("hidden");
+
+  const btnPayment = document.getElementById("btnPaymentStatus");
+  const btnProfile = document.getElementById("btnProfile");
+  const btnMyClasses = document.getElementById("btnMyClasses");
+  const btnSchedule = document.getElementById("btnSchedule");
+  const btnAdminTrials = document.getElementById("btnAdminTrials");
+  const btnAdminWeek = document.getElementById("btnAdminWeek");
+  const btnAdminStudents = document.getElementById("btnAdminStudents");
+  const btnAdminAddStudent = document.getElementById("btnAdminAddStudent");
+  if (currentUser.role === "admin") {
+    btnPayment.classList.add("hidden");
+    btnProfile.classList.add("hidden");
+    btnMyClasses.classList.add("hidden");
+    btnSchedule.classList.add("hidden");
+    btnAdminTrials.classList.remove("hidden");
+    btnAdminWeek.classList.remove("hidden");
+    btnAdminStudents.classList.remove("hidden");
+    btnAdminAddStudent.classList.remove("hidden");
+  } else {
+    btnPayment.classList.remove("hidden");
+    btnProfile.classList.remove("hidden");
+    btnMyClasses.classList.remove("hidden");
+    btnSchedule.classList.remove("hidden");
+    btnAdminTrials.classList.add("hidden");
+    btnAdminWeek.classList.add("hidden");
+    btnAdminStudents.classList.add("hidden");
+    btnAdminAddStudent.classList.add("hidden");
+  }
+}
+
+function cerrarSesion() {
+  currentUser = null;
+  isAdmin = false;
+  document.getElementById("user-menu").classList.add("hidden");
+  updatePublicButtons();
+  showToast("Sesión cerrada");
+}
+
+async function abrirCalendario() {
+  document.getElementById("calendar-title").innerText =
+    currentUser.role === "admin"
+      ? "Calendario General"
+      : `Agendar clases: ${currentUser.discipline}`;
+
+  await renderCalendar();
+  openModal("calendar-modal");
+}
+
+function abrirEstadoPago() {
+  cargarEstadoPagoUsuario();
+  openModal("payment-modal");
+}
+
+function abrirPerfil() {
+  document.getElementById("profile-name").innerText = currentUser.name;
+  document.getElementById("profile-plan").innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+  document.getElementById("profile-discipline").innerText = currentUser.discipline || "-";
+  document.getElementById("profile-payment").innerText = currentUser.paymentStatus || "-";
+  document.getElementById("profile-access-code").innerText = currentUser.accessCode || currentUser.name;
+  const form = document.getElementById("form-update-access-code");
+  if (form) {
+    form.reset();
+  }
+  openModal("profile-modal");
+}
+
+async function actualizarClaveAcceso(event) {
+  event.preventDefault();
+  if (!currentUser || currentUser.role !== "member") {
+    showToast("Solo disponible para alumnos.");
+    return;
+  }
+
+  const newCode = document.getElementById("new-access-code").value.trim();
+  const confirmCode = document.getElementById("confirm-access-code").value.trim();
+
+  if (!newCode || !confirmCode) {
+    showToast("Completa ambos campos.");
+    return;
+  }
+
+  if (newCode !== confirmCode) {
+    showToast("Las claves no coinciden.");
+    return;
+  }
+
+  const normalizedCode = newCode.toLowerCase();
+  if (normalizedCode === ADMIN_CODE.toLowerCase() || normalizedCode === ADMIN_USER.toLowerCase()) {
+    showToast("Esa clave está reservada. Usa otra.");
+    return;
+  }
+
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const hasConflict = students.some(student =>
+    student.id !== currentUser.id &&
+    (student.accessCode || "").toLowerCase() === normalizedCode
+  );
+
+  if (hasConflict) {
+    showToast("La clave ya está en uso. Elige otra.");
+    return;
+  }
+
+  const updatedStudents = students.map(student =>
+    student.id === currentUser.id ? { ...student, accessCode: newCode } : student
+  );
+
+  await saveStudents(updatedStudents);
+  currentUser.accessCode = newCode;
+  document.getElementById("profile-access-code").innerText = newCode;
+  document.getElementById("form-update-access-code").reset();
+  showToast("Clave actualizada correctamente.");
+}
+
+async function abrirMisClases() {
+  await renderMisClases();
+  openModal("my-classes-modal");
+}
+
+async function abrirClasesAgendadasAdmin() {
+  await cargarSolicitudesTrialAdmin();
+  openModal("admin-trial-modal");
+}
+
+function abrirClasesSemanaAdmin() {
+  const defaultDiscipline = "Jiu Jitsu";
+  setAdminWeekDiscipline(defaultDiscipline);
+  openModal("admin-weekly-plan-modal");
+}
+
+async function abrirAlumnosInscritosAdmin() {
+  await cargarAlumnosAdmin();
+  openModal("admin-students-modal");
+}
+
+function abrirAgregarAlumnoAdmin() {
+  actualizarPlanesDisponibles();
+  openModal("admin-add-student-modal");
+}
+
+function cargarEstadoPagoUsuario() {
+  const card = document.getElementById("payment-status-card");
+  if (!currentUser || currentUser.role !== "member") {
+    card.innerHTML = '<p class="muted">Solo disponible para alumnos.</p>';
+    return;
+  }
+
+  const status = currentUser.paymentStatus;
+  const statusText = status === "pagado" ? "Pagado" : status === "pendiente" ? "Pendiente" : "Vencido";
+  const statusClass = status === "pagado" ? "status-paid" : status === "pendiente" ? "status-pending" : "status-overdue";
+
+  card.innerHTML = `
+    <h3>Estado actual</h3>
+    <p><span class="status-pill ${statusClass}">${statusText}</span></p>
+    <p><strong>Próximo pago:</strong> ${currentUser.paymentDue || "Por definir"}</p>
+    <p>${status === "pendiente" ? "Recuerda regularizar tu pago durante esta semana." : status === "vencido" ? "Tu pago está vencido. Debes regularizar para volver a reservar." : "¡Gracias por mantener tu pago al día!"}</p>
+  `;
+}
+
+async function renderCalendar() {
+  await hydrateScheduleEnrollments();
+  const grid = document.getElementById("calendar-grid");
+  const paymentBanner = document.getElementById("payment-banner");
+  const limitInfo = document.getElementById("limit-info");
+  grid.innerHTML = "";
+
+  const dayOrder = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sabado"];
+  const days = isAdmin
+    ? dayOrder
+    : dayOrder.filter(day =>
+      scheduleData.some(cls => cls.day === day && isClassRelevantForUser(cls, currentUser))
+    );
+
+  let userCount = 0;
+  let planLimit = 0;
+
+  if (!isAdmin && currentUser) {
+    userCount = getUserWeeklyCount(currentUser);
+    planLimit = getWeeklyLimitForStudent(currentUser);
+
+    document.getElementById("classes-count").innerText = userCount;
+    document.getElementById("max-classes").innerText = planLimit;
+    const planLabel = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+    const overrideTag = typeof currentUser.weeklyLimitOverride === "number"
+      ? " (límite ajustado por admin)"
+      : "";
+    document.getElementById("plan-name-display").innerText = `${planLabel}${overrideTag}`;
+
+    if (planLimit > 0) {
+      limitInfo.classList.remove("hidden");
+    } else {
+      limitInfo.classList.add("hidden");
     }
 
-    const plan = snapshot.val();
+    if (currentUser.paymentStatus === "pendiente") {
+      paymentBanner.classList.remove("hidden");
+      paymentBanner.classList.remove("is-overdue");
+      paymentBanner.innerText = "Recuerda regularizar tu pago pendiente para evitar bloqueos de reserva.";
+    } else if (currentUser.paymentStatus === "vencido") {
+      paymentBanner.classList.remove("hidden");
+      paymentBanner.classList.add("is-overdue");
+      paymentBanner.innerText = "Pago vencido: no podrás reservar hasta que el administrador confirme el pago.";
+    } else {
+      paymentBanner.classList.add("hidden");
+    }
+  } else {
+    limitInfo.classList.add("hidden");
+    paymentBanner.classList.add("hidden");
+  }
 
-    update(ref(db, `alumnos/${uid}`), {
-      estadoPago: nuevoEstado,
-      disciplina: disciplina,
-      planId: planId,
-      clasesDisponibles: plan.clasesSemanales,
-      ultimoPago: new Date().toISOString().slice(0, 10)
+  days.forEach(day => {
+    let columnHTML = `<div class="day-column"><div class="day-header">${day}</div>`;
+    const dayClasses = scheduleData.filter(s => s.day === day);
+    const relevantClasses = isAdmin
+      ? dayClasses
+      : dayClasses.filter(c => isClassRelevantForUser(c, currentUser));
+
+    relevantClasses.forEach(c => {
+      const isEnrolled = currentUser && c.enrolled.some(u => u.name === currentUser.name);
+      const isFull = c.enrolled.length >= c.capacity;
+      let btnClass = "cal-btn reserve";
+      let btnText = "RESERVAR";
+      let btnState = "";
+      let canReserve = true;
+
+      if (isAdmin) {
+        canReserve = false;
+      } else if (currentUser.paymentStatus === "vencido") {
+        btnText = "PAGO VENCIDO";
+        btnClass = "cal-btn disabled";
+        canReserve = false;
+      } else if (isEnrolled) {
+        btnText = "CANCELAR";
+        btnClass = "cal-btn cancel";
+      } else if (isFull) {
+        btnText = "LLENO";
+        btnClass = "cal-btn disabled";
+        canReserve = false;
+      } else if (c.countsTowardLimit !== false && planLimit > 0 && userCount >= planLimit) {
+        btnText = "LÍMITE ALCANZADO";
+        btnClass = "cal-btn disabled";
+        canReserve = false;
+      }
+
+      if (!canReserve) btnState = "disabled";
+
+      let namesList = c.enrolled.map(u => u.name).join(", ");
+      if (!namesList) namesList = "Vacío";
+      const adminCountLabel = isAdmin ? ` (${c.enrolled.length})` : "";
+
+      columnHTML += `
+        <div class="cal-card">
+          <div class="cal-time">${c.time}</div>
+          <div class="cal-class">${c.class}</div>
+          <div class="cal-attendees">Alumnos${adminCountLabel}: ${namesList}</div>
+          ${!isAdmin ? `<button class="${btnClass}" ${btnState} onclick="toggleReservation(${c.id})">${btnText}</button>` : ""}
+        </div>
+      `;
     });
+    if (relevantClasses.length === 0) columnHTML += `<div style="color:#ccc; font-size:0.8rem; text-align:center; padding:10px;">-</div>`;
+    columnHTML += "</div>";
+    grid.innerHTML += columnHTML;
   });
 }
-function puedeAgendar(uid, claseId) {
-  return Promise.all([
-    get(ref(db, `alumnos/${uid}`)),
-    get(ref(db, `clases/${claseId}`))
-  ]).then(([alumnoSnap, claseSnap]) => {
 
-    const alumno = alumnoSnap.val();
-    const clase = claseSnap.val();
+async function renderMisClases() {
+  const list = document.getElementById("my-classes-list");
+  const paymentBanner = document.getElementById("my-classes-payment");
+  list.innerHTML = "";
+  await hydrateScheduleEnrollments();
 
-    if (alumno.estadoPago === "vencido") return false;
-    if (alumno.clasesDisponibles <= 0) return false;
-    if (alumno.disciplina !== clase.disciplina) return false;
+  if (!currentUser || currentUser.role !== "member") {
+    list.innerHTML = '<p class="muted">Solo disponible para alumnos.</p>';
+    return;
+  }
 
-    return true;
+  const userEnrollments = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name));
+  const planLimit = getWeeklyLimitForStudent(currentUser);
+  const limitInfo = document.querySelector("#my-classes-modal .plan-limit-info");
+
+  document.getElementById("my-classes-count").innerText = getUserWeeklyCount(currentUser);
+  document.getElementById("my-classes-max").innerText = planLimit;
+  const planLabel = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+  const overrideTag = typeof currentUser.weeklyLimitOverride === "number"
+    ? " (límite ajustado por admin)"
+    : "";
+  document.getElementById("my-plan-name").innerText = `${planLabel}${overrideTag}`;
+  if (limitInfo) {
+    limitInfo.classList.toggle("hidden", planLimit === 0);
+  }
+
+  if (currentUser.paymentStatus === "pendiente") {
+    paymentBanner.classList.remove("hidden");
+    paymentBanner.classList.remove("is-overdue");
+    paymentBanner.innerText = "Tienes un pago pendiente. Regulariza para evitar bloqueos de reserva.";
+  } else if (currentUser.paymentStatus === "vencido") {
+    paymentBanner.classList.remove("hidden");
+    paymentBanner.classList.add("is-overdue");
+    paymentBanner.innerText = "Pago vencido: no podrás agendar nuevas clases hasta regularizar.";
+  } else {
+    paymentBanner.classList.add("hidden");
+  }
+
+  if (userEnrollments.length === 0) {
+    list.innerHTML = '<p class="muted">Aún no tienes clases agendadas.</p>';
+    return;
+  }
+
+  userEnrollments.forEach(cls => {
+    const item = document.createElement("div");
+    item.className = "info-card";
+    item.style.marginBottom = "10px";
+    item.innerHTML = `
+      <h3>${cls.class}</h3>
+      <p><strong>Día:</strong> ${cls.day}</p>
+      <p><strong>Hora:</strong> ${cls.time}</p>
+      <p class="muted">Instructor: ${cls.instructor}</p>
+    `;
+    list.appendChild(item);
   });
 }
-/*************************************************
- * ADMIN – PUSH
- *************************************************/
-$("btnEnablePush")?.addEventListener("click", async () => {
-  const perm = await Notification.requestPermission();
-  if (perm !== "granted") return;
 
-  const token = await getToken(messaging, { vapidKey: VAPID_KEY });
-  await setDoc(doc(db, "users", currentUser.uid), {
-    fcmToken: token
-  }, { merge: true });
+async function toggleReservation(classId) {
+  const cls = scheduleData.find(c => c.id === classId);
+  const planLimit = getWeeklyLimitForStudent(currentUser);
+  const currentCount = getUserWeeklyCount(currentUser);
 
-  alert("Notificaciones activadas");
-});
+  if (cls.openMatOnly && !isOpenMatEligible(currentUser)) {
+    showToast("Esta clase es exclusiva para alumnos de Jiu Jitsu.");
+    return;
+  }
+
+  if (currentUser.paymentStatus === "vencido") {
+    showToast("No puedes reservar con pago vencido.");
+    return;
+  }
+
+  if (cls.enrolled.some(u => u.name === currentUser.name)) {
+    cls.enrolled = cls.enrolled.filter(u => u.name !== currentUser.name);
+    showToast(`Cancelaste tu asistencia a ${cls.class}`);
+  } else {
+    if (cls.countsTowardLimit !== false && planLimit > 0 && currentCount >= planLimit) {
+      showToast(`¡Límite alcanzado! Tu plan permite ${planLimit} clases por semana.`);
+      return;
+    }
+    if (cls.enrolled.length >= cls.capacity) {
+      showToast("La clase está llena.");
+      return;
+    }
+    cls.enrolled.push({ name: currentUser.name, plan: currentUser.plan });
+    showToast(`¡Reservado para ${cls.class}!`);
+  }
+
+  const currentWeek = cachedEnrollments;
+  currentWeek[cls.id] = cls.enrolled;
+  await setCurrentWeekEnrollments(currentWeek);
+  await renderCalendar();
+}
+
+async function cargarResumenAdmin() {
+  const totalAlumnos = document.getElementById("total-alumnos");
+  if (!totalAlumnos) {
+    return;
+  }
+
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  totalAlumnos.innerText = students.length;
+  document.getElementById("total-pendiente").innerText = students.filter(s => s.paymentStatus === "pendiente").length;
+  document.getElementById("total-vencido").innerText = students.filter(s => s.paymentStatus === "vencido").length;
+  document.getElementById("total-pagados").innerText = students.filter(s => s.paymentStatus === "pagado").length;
+
+  const counts = students.reduce((acc, s) => {
+    acc[s.discipline] = (acc[s.discipline] || 0) + 1;
+    return acc;
+  }, {});
+
+  const list = document.getElementById("disciplinas-count");
+  list.innerHTML = "";
+  Object.entries(counts).forEach(([disc, count]) => {
+    const li = document.createElement("li");
+    li.innerText = `${disc}: ${count}`;
+    list.appendChild(li);
+  });
+}
+
+async function cargarSolicitudesTrialAdmin() {
+  const container = document.getElementById("admin-trial-list");
+  const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
+  container.innerHTML = "";
+
+  if (requests.length === 0) {
+    container.innerHTML = '<p class="muted">No hay solicitudes registradas.</p>';
+    return;
+  }
+
+  requests.forEach(req => {
+    const item = document.createElement("div");
+    const formattedDate = req.fecha ? new Date(req.fecha).toLocaleString("es-CL") : "Sin fecha";
+    const planOptions = getPlanOptionsForDiscipline(req.disciplina);
+    item.className = "info-card";
+    item.style.marginBottom = "10px";
+    item.innerHTML = `
+      <h3>${req.nombre}</h3>
+      <p><strong>Disciplina:</strong> ${req.disciplina || "-"}</p>
+      <p><strong>Teléfono:</strong> ${req.telefono || "-"}</p>
+      <p><strong>Email:</strong> ${req.email || "-"}</p>
+      <p class="muted">Registrado: ${formattedDate}</p>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Plan a asignar</label>
+        <select id="trial-plan-${req.id}" class="form-control">
+          <option value="">Seleccionar plan</option>
+          ${planOptions}
+        </select>
+      </div>
+      <button class="btn-submit" style="margin-top:6px;" onclick="agregarAlumnoDesdeTrial('${req.id}')">Agregar alumno</button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+async function agregarAlumnoDesdeTrial(requestId) {
+  const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
+  const request = requests.find(req => req.id === requestId);
+  if (!request) {
+    showToast("Solicitud no encontrada.");
+    return;
+  }
+
+  const planSelect = document.getElementById(`trial-plan-${requestId}`);
+  const planValue = planSelect ? planSelect.value : "";
+  if (!planValue) {
+    showToast("Selecciona un plan para continuar.");
+    return;
+  }
+
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const discipline = request.disciplina || "Sin disciplina";
+  const accessCode = generateAccessCode({ discipline });
+  const newStudent = {
+    id: `s${Date.now()}`,
+    name: request.nombre,
+    discipline,
+    plan: planValue,
+    paymentStatus: "pendiente",
+    phone: request.telefono || "",
+    email: request.email || "",
+    paymentDue: new Date().toISOString().split("T")[0],
+    accessCode
+  };
+
+  students.push(newStudent);
+  await saveStudents(students);
+  await saveTrialRequests(requests.filter(req => req.id !== requestId));
+  showToast(`Alumno ${newStudent.name} agregado.`);
+  await cargarSolicitudesTrialAdmin();
+  await cargarAlumnosAdmin();
+}
+
+async function cargarPlanClasesAdmin(discipline) {
+  await hydrateScheduleEnrollments();
+  const container = document.getElementById("admin-weekly-plan");
+  const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sabado"];
+  container.innerHTML = "";
+
+  const grid = document.createElement("div");
+  grid.className = "admin-weekly-grid";
+
+  days.forEach(day => {
+    const dayCard = document.createElement("div");
+    dayCard.className = "admin-day-card";
+    dayCard.innerHTML = `<h4>${day}</h4>`;
+
+    const dayClasses = scheduleData.filter(cls => {
+      if (cls.day !== day) return false;
+      if (discipline === "OpenMAT") return cls.openMatOnly;
+      if (discipline === "Jiu Jitsu") return cls.class === discipline || cls.openMatOnly;
+      return cls.class === discipline;
+    });
+    if (dayClasses.length === 0) {
+      dayCard.innerHTML += '<p class="muted">Sin clases</p>';
+    } else {
+      dayClasses.forEach(cls => {
+        const attendees = cls.enrolled.map(u => u.name).join(", ") || "Sin alumnos";
+        const attendeeCount = cls.enrolled.length;
+        const item = document.createElement("div");
+        item.className = "admin-class-item";
+        item.innerHTML = `
+          <strong>${cls.time} - ${cls.class}</strong>
+          <span class="muted">${cls.instructor}</span><br>
+          <span>Alumnos (${attendeeCount}): ${attendees}</span>
+        `;
+        dayCard.appendChild(item);
+      });
+    }
+
+    grid.appendChild(dayCard);
+  });
+
+  container.appendChild(grid);
+}
+
+function setAdminWeekDiscipline(discipline) {
+  const title = document.querySelector("#admin-weekly-plan-modal .modal-header h3");
+  if (title) {
+    title.innerText = `Plan Semanal: ${discipline}`;
+  }
+  cargarPlanClasesAdmin(discipline);
+}
+
+function getPlanOptionsForDiscipline(discipline) {
+  const plans = DISCIPLINE_PLANS[discipline] || [];
+  if (plans.length === 0) {
+    return '<option value="PRUEBA">Clase de prueba</option>';
+  }
+  return plans.map(planKey => `<option value="${planKey}">${PLAN_CONFIG[planKey]?.label || planKey}</option>`).join("");
+}
+
+async function cargarClasesPorDisciplinaAdmin() {
+  await hydrateScheduleEnrollments();
+  const container = document.getElementById("admin-disciplines-classes");
+  const counts = scheduleData.reduce((acc, cls) => {
+    acc[cls.class] = (acc[cls.class] || 0) + cls.enrolled.length;
+    return acc;
+  }, {});
+
+  container.innerHTML = "";
+  Object.entries(counts).forEach(([disc, count]) => {
+    const row = document.createElement("div");
+    row.innerHTML = `<strong>${disc}</strong>: ${count} alumnos agendados`;
+    row.style.marginBottom = "6px";
+    container.appendChild(row);
+  });
+}
+
+async function cargarAlumnosNoPagadosAdmin() {
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const container = document.getElementById("admin-unpaid-list");
+  const total = document.getElementById("admin-unpaid-total");
+  if (!container || !total) {
+    return;
+  }
+  const unpaid = students.filter(student => student.paymentStatus !== "pagado");
+  const paid = students.filter(student => student.paymentStatus === "pagado");
+
+  document.getElementById("admin-total-students").innerText = students.length;
+  document.getElementById("admin-paid-total").innerText = paid.length;
+
+  total.innerText = unpaid.length;
+  container.innerHTML = "";
+
+  if (unpaid.length === 0) {
+    container.innerHTML = '<p class="muted">Sin alumnos pendientes o vencidos.</p>';
+    return;
+  }
+
+  unpaid.forEach(student => {
+    const statusText = student.paymentStatus === "pendiente" ? "Pendiente" : "Vencido";
+    const statusClass = student.paymentStatus === "pendiente" ? "status-pending" : "status-overdue";
+    const card = document.createElement("div");
+    card.className = "info-card";
+    card.style.marginBottom = "10px";
+    card.innerHTML = `
+      <h3>${student.name}</h3>
+      <p><strong>Disciplina:</strong> ${student.discipline}</p>
+      <p><strong>Plan:</strong> ${PLAN_CONFIG[student.plan]?.label || student.plan}</p>
+      <p><span class="status-pill ${statusClass}">${statusText}</span></p>
+      <button class="btn-paid" style="margin-top:8px;" onclick="actualizarPago('${student.id}', 'pagado')">Marcar como Pagado</button>
+    `;
+    container.appendChild(card);
+  });
+}
+
+async function cargarAlumnosAdmin() {
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const enrollments = cachedEnrollments || await getCurrentWeekEnrollments();
+  const tbody = document.getElementById("admin-alumnos-table");
+  tbody.innerHTML = "";
+
+  students.forEach(student => {
+    const classCount = Object.values(enrollments).filter(list =>
+      list.some(enrolled => enrolled.name === student.name)
+    ).length;
+    const planLimit = PLAN_CONFIG[student.plan]?.weeklyLimit || 0;
+    const overrideValue = typeof student.weeklyLimitOverride === "number"
+      ? student.weeklyLimitOverride
+      : "";
+
+    const statusClass = student.paymentStatus === "pagado" ? "status-paid" : student.paymentStatus === "pendiente" ? "status-pending" : "status-overdue";
+    const statusText = student.paymentStatus === "pagado" ? "Pagado" : student.paymentStatus === "pendiente" ? "Pendiente" : "Vencido";
+    const accessKey = student.accessCode || student.name;
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${student.name}</td>
+      <td>${student.discipline}</td>
+      <td>${PLAN_CONFIG[student.plan]?.label || student.plan}</td>
+      <td><span class="admin-key-pill">${accessKey}</span></td>
+      <td>${classCount}</td>
+      <td>
+        <div class="admin-inline">
+          <input type="number" min="0" class="form-control" id="limit-${student.id}" value="${overrideValue}">
+          <button class="btn-login" onclick="actualizarLimiteSemanal('${student.id}')">Guardar</button>
+        </div>
+        <span class="admin-helper">Plan: ${planLimit} clases</span>
+      </td>
+      <td><span class="status-pill ${statusClass}">${statusText}</span></td>
+      <td class="admin-actions">
+        <button class="btn-paid" onclick="actualizarPago('${student.id}', 'pagado')">Pagado</button>
+        <button class="btn-pending" onclick="actualizarPago('${student.id}', 'pendiente')">Pendiente</button>
+        <button class="btn-overdue" onclick="actualizarPago('${student.id}', 'vencido')">Vencido</button>
+        <button class="btn-overdue" onclick="eliminarAlumno('${student.id}')">Eliminar</button>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+async function actualizarLimiteSemanal(studentId) {
+  const input = document.getElementById(`limit-${studentId}`);
+  if (!input) {
+    showToast("Campo de límite no encontrado.");
+    return;
+  }
+  const rawValue = input.value.trim();
+  const parsedValue = rawValue === "" ? null : Number(rawValue);
+  if (parsedValue !== null && (!Number.isFinite(parsedValue) || parsedValue < 0)) {
+    showToast("Ingresa un número válido.");
+    return;
+  }
+
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const updated = students.map(student => {
+    if (student.id !== studentId) return student;
+    const nextData = { ...student };
+    if (parsedValue === null) {
+      delete nextData.weeklyLimitOverride;
+    } else {
+      nextData.weeklyLimitOverride = parsedValue;
+    }
+    return nextData;
+  });
+  await saveStudents(updated);
+  if (currentUser && currentUser.id === studentId) {
+    if (parsedValue === null) {
+      delete currentUser.weeklyLimitOverride;
+    } else {
+      currentUser.weeklyLimitOverride = parsedValue;
+    }
+  }
+  await cargarAlumnosAdmin();
+  showToast("Límite semanal actualizado.");
+}
+
+async function eliminarAlumno(studentId) {
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const student = students.find(item => item.id === studentId);
+  if (!student) {
+    showToast("Alumno no encontrado.");
+    return;
+  }
+  if (!confirm(`¿Eliminar a ${student.name}?`)) {
+    return;
+  }
+  const updated = students.filter(item => item.id !== studentId);
+  await saveStudents(updated);
+  await cargarResumenAdmin();
+  await cargarAlumnosAdmin();
+  await cargarAlumnosNoPagadosAdmin();
+  showToast("Alumno eliminado.");
+}
+
+async function actualizarPago(studentId, status) {
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const updated = students.map(student =>
+    student.id === studentId ? { ...student, paymentStatus: status } : student
+  );
+  await saveStudents(updated);
+  if (currentUser && currentUser.id === studentId) {
+    currentUser.paymentStatus = status;
+  }
+  await cargarResumenAdmin();
+  await cargarAlumnosAdmin();
+  await cargarAlumnosNoPagadosAdmin();
+  showToast("Estado de pago actualizado");
+}
+
+function actualizarPlanesDisponibles() {
+  const discipline = document.getElementById("new-disciplina").value;
+  const planSelect = document.getElementById("new-plan");
+  const options = getPlanOptionsForDiscipline(discipline);
+  planSelect.innerHTML = `<option value="">Seleccionar plan</option>${options}<option value="PRUEBA">Clase de prueba</option>`;
+}
+
+async function registrarNuevoAlumno(e) {
+  e.preventDefault();
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const discipline = document.getElementById("new-disciplina").value;
+  const name = document.getElementById("new-nombre").value.trim();
+  const accessCode = generateAccessCode({ discipline });
+  const newStudent = {
+    id: `s${Date.now()}`,
+    name,
+    discipline,
+    plan: document.getElementById("new-plan").value,
+    paymentStatus: "pendiente",
+    phone: document.getElementById("new-telefono").value.trim(),
+    email: document.getElementById("new-email").value.trim(),
+    paymentDue: new Date().toISOString().split("T")[0],
+    accessCode
+  };
+
+  students.push(newStudent);
+  await saveStudents(students);
+  document.getElementById("new-alumno-result").innerText = `Alumno ${newStudent.name} registrado. Clave de acceso: ${accessCode} (puedes usar el nombre como clave temporal).`;
+  document.getElementById("form-new-alumno").reset();
+  await cargarResumenAdmin();
+  await cargarAlumnosAdmin();
+  await cargarAlumnosNoPagadosAdmin();
+}
+
+async function runWeeklyReset(meta) {
+  const today = new Date();
+  if (today.getDay() !== 0) {
+    return meta;
+  }
+  const weekKey = getWeekKey(today);
+  if (meta.lastWeeklyReset === weekKey) {
+    return meta;
+  }
+  await set(ref(database, DATA_PATHS.enrollments), { [weekKey]: {} });
+  const updatedMeta = { ...meta, lastWeeklyReset: weekKey };
+  await update(ref(database, DATA_PATHS.meta), { lastWeeklyReset: weekKey });
+  cachedEnrollments = {};
+  return updatedMeta;
+}
+
+async function runMonthlyPaymentReset(meta) {
+  const today = new Date();
+  const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+
+  if (today.getDate() === 1 && meta.lastPaymentResetMonth !== monthKey) {
+    const students = await loadStudents();
+    const resetStudents = students.map(student => ({
+      ...student,
+      paymentStatus: "pendiente",
+      paymentDue: today.toISOString().split("T")[0]
+    }));
+    await saveStudents(resetStudents);
+    await update(ref(database, DATA_PATHS.meta), { lastPaymentResetMonth: monthKey });
+    meta.lastPaymentResetMonth = monthKey;
+  }
+
+  if (today.getDate() >= 6 && meta.lastPaymentOverdueMonth !== monthKey) {
+    const students = await loadStudents();
+    const overdueStudents = students.map(student =>
+      student.paymentStatus === "pendiente"
+        ? { ...student, paymentStatus: "vencido" }
+        : student
+    );
+    await saveStudents(overdueStudents);
+    await update(ref(database, DATA_PATHS.meta), { lastPaymentOverdueMonth: monthKey });
+    meta.lastPaymentOverdueMonth = monthKey;
+  }
+
+  return meta;
+}
+
+async function runMaintenance() {
+  const metaSnapshot = await get(ref(database, DATA_PATHS.meta));
+  let meta = metaSnapshot.exists() ? metaSnapshot.val() : {};
+  meta = await runWeeklyReset(meta);
+  await runMonthlyPaymentReset(meta);
+}
+
+async function init() {
+  await runMaintenance();
+  cachedStudents = await loadStudents();
+  cachedTrialRequests = await loadTrialRequests();
+  await hydrateScheduleEnrollments();
+  renderCards();
+  updatePublicButtons();
+
+  const disciplineSelect = document.getElementById("new-disciplina");
+  if (disciplineSelect) {
+    disciplineSelect.addEventListener("change", actualizarPlanesDisponibles);
+  }
+
+  const newStudentForm = document.getElementById("form-new-alumno");
+  if (newStudentForm) {
+    newStudentForm.addEventListener("submit", registrarNuevoAlumno);
+  }
+}
+
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.showToast = showToast;
+window.openTrialModal = openTrialModal;
+window.openLoginModal = openLoginModal;
+window.openPublicSchedule = openPublicSchedule;
+window.submitTrial = submitTrial;
+window.handleLogin = handleLogin;
+window.abrirMisClases = abrirMisClases;
+window.abrirCalendario = abrirCalendario;
+window.abrirEstadoPago = abrirEstadoPago;
+window.abrirPerfil = abrirPerfil;
+window.abrirClasesAgendadasAdmin = abrirClasesAgendadasAdmin;
+window.abrirClasesSemanaAdmin = abrirClasesSemanaAdmin;
+window.abrirAlumnosInscritosAdmin = abrirAlumnosInscritosAdmin;
+window.abrirAgregarAlumnoAdmin = abrirAgregarAlumnoAdmin;
+window.cerrarSesion = cerrarSesion;
+window.actualizarClaveAcceso = actualizarClaveAcceso;
+window.setAdminWeekDiscipline = setAdminWeekDiscipline;
+window.toggleReservation = toggleReservation;
+window.actualizarPago = actualizarPago;
+window.eliminarAlumno = eliminarAlumno;
+window.actualizarLimiteSemanal = actualizarLimiteSemanal;
+window.agregarAlumnoDesdeTrial = agregarAlumnoDesdeTrial;
+
+init();
