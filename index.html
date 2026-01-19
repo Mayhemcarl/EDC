@@ -455,34 +455,6 @@
             </div>
         </section>
 
-        <section>
-            <div class="section-title">
-                <h2>Planes Semanales</h2>
-                <p>Elige un plan y reserva según tu límite semanal</p>
-            </div>
-            <div class="plan-grid">
-                <div class="plan-card">
-                    <h3>Plan 2x</h3>
-                    <span>2 clases por semana</span>
-                    <p>Ideal para quienes entrenan 2 veces por semana.</p>
-                </div>
-                <div class="plan-card">
-                    <h3>Plan 4x</h3>
-                    <span>4 clases por semana</span>
-                    <p>Para mantener un ritmo constante durante la semana.</p>
-                </div>
-                <div class="plan-card">
-                    <h3>Plan Full</h3>
-                    <span>6 clases por semana</span>
-                    <p>Acceso casi diario con prioridad en reservas.</p>
-                </div>
-                <div class="plan-card">
-                    <h3>Clase de prueba</h3>
-                    <span>1 clase</span>
-                    <p>Primera clase para conocer la experiencia Elemental.</p>
-                </div>
-            </div>
-        </section>
     </main>
 
     <!-- MODAL: CLASE DE PRUEBA -->
@@ -611,14 +583,19 @@
         </div>
     </div>
 
-    <!-- MODAL: ADMIN - PLAN SEMANAL -->
+    <!-- MODAL: ADMIN - SEMANA -->
     <div class="modal-overlay" id="admin-weekly-plan-modal">
         <div class="modal">
             <div class="modal-header">
-                <h3>Plan de Clases Semanal</h3>
+                <h3>Plan Semanal por Disciplina</h3>
                 <button class="close-modal" onclick="closeModal('admin-weekly-plan-modal')">&times;</button>
             </div>
             <div class="modal-body admin-panel">
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+                    <button class="btn-login" onclick="setAdminWeekDiscipline('Jiu Jitsu')">Jiu-Jitsu</button>
+                    <button class="btn-login" onclick="setAdminWeekDiscipline('Judo')">Judo</button>
+                    <button class="btn-login" onclick="setAdminWeekDiscipline('Kick Boxing')">Kickboxing</button>
+                </div>
                 <div id="admin-weekly-plan">
                     <p class="muted">Cargando itinerario...</p>
                 </div>
@@ -670,9 +647,6 @@
                     <div class="form-group">
                         <select id="new-plan" class="form-control" required>
                             <option value="">Seleccionar plan</option>
-                            <option value="2x">Plan 2x</option>
-                            <option value="4x">Plan 4x</option>
-                            <option value="FULL">Plan Full</option>
                             <option value="PRUEBA">Clase de prueba</option>
                         </select>
                     </div>
@@ -730,7 +704,6 @@
         <button id="btnPaymentStatus" onclick="abrirEstadoPago()"><i class="fas fa-credit-card"></i> Estado de Pago</button>
         <button id="btnProfile" onclick="abrirPerfil()"><i class="fas fa-user"></i> Mi Perfil</button>
         <button id="btnAdminTrials" class="hidden" onclick="abrirClasesAgendadasAdmin()"><i class="fas fa-clipboard-check"></i> Clases agendadas</button>
-        <button id="btnAdminPlan" class="hidden" onclick="abrirPlanClasesAdmin()"><i class="fas fa-list"></i> Plan de clases</button>
         <button id="btnAdminWeek" class="hidden" onclick="abrirClasesSemanaAdmin()"><i class="fas fa-calendar-week"></i> Semana</button>
         <button id="btnAdminStudents" class="hidden" onclick="abrirAlumnosInscritosAdmin()"><i class="fas fa-users"></i> Alumnos inscritos</button>
         <button id="btnAdminAddStudent" class="hidden" onclick="abrirAgregarAlumnoAdmin()"><i class="fas fa-user-plus"></i> Agregar alumnos</button>
@@ -791,16 +764,26 @@
         ];
 
         const PLAN_CONFIG = {
-            "2x": { label: "Plan 2x", weeklyLimit: 2 },
-            "4x": { label: "Plan 4x", weeklyLimit: 4 },
-            "FULL": { label: "Plan Full", weeklyLimit: 6 },
+            "JJ_STD": { label: "Plan estándar Jiu-Jitsu", weeklyLimit: 3 },
+            "JJ_FULL": { label: "Plan full Jiu-Jitsu", weeklyLimit: 10 },
+            "JJ_REBAJA": { label: "Plan rebaja Jiu-Jitsu", weeklyLimit: 5 },
+            "JJ_MUJERES": { label: "Plan mujeres Jiu-Jitsu", weeklyLimit: 3 },
+            "JD_STD": { label: "Plan estándar Judo", weeklyLimit: 2 },
+            "KB_STD": { label: "Plan estándar Kickboxing", weeklyLimit: 3 },
             "PRUEBA": { label: "Clase de prueba", weeklyLimit: 1 }
         };
 
+        const DISCIPLINE_PLANS = {
+            "Jiu Jitsu": ["JJ_STD", "JJ_FULL", "JJ_REBAJA", "JJ_MUJERES"],
+            "Jiu Jitsu Kid": ["JJ_STD", "JJ_REBAJA"],
+            "Judo": ["JD_STD"],
+            "Kick Boxing": ["KB_STD"]
+        };
+
         const DEFAULT_STUDENTS = [
-            { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
-            { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "4x", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
-            { id: "s3", name: "Valentina Ríos", discipline: "Judo", plan: "2x", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28", accessCode: "JD-2051" },
+            { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "JJ_FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
+            { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "KB_STD", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
+            { id: "s3", name: "Valentina Ríos", discipline: "Judo", plan: "JD_STD", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28", accessCode: "JD-2051" },
             { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
         ];
 
@@ -1074,7 +1057,6 @@
             const btnMyClasses = document.getElementById('btnMyClasses');
             const btnSchedule = document.getElementById('btnSchedule');
             const btnAdminTrials = document.getElementById('btnAdminTrials');
-            const btnAdminPlan = document.getElementById('btnAdminPlan');
             const btnAdminWeek = document.getElementById('btnAdminWeek');
             const btnAdminStudents = document.getElementById('btnAdminStudents');
             const btnAdminAddStudent = document.getElementById('btnAdminAddStudent');
@@ -1084,7 +1066,6 @@
                 btnMyClasses.classList.add('hidden');
                 btnSchedule.classList.add('hidden');
                 btnAdminTrials.classList.remove('hidden');
-                btnAdminPlan.classList.remove('hidden');
                 btnAdminWeek.classList.remove('hidden');
                 btnAdminStudents.classList.remove('hidden');
                 btnAdminAddStudent.classList.remove('hidden');
@@ -1094,7 +1075,6 @@
                 btnMyClasses.classList.remove('hidden');
                 btnSchedule.classList.remove('hidden');
                 btnAdminTrials.classList.add('hidden');
-                btnAdminPlan.classList.add('hidden');
                 btnAdminWeek.classList.add('hidden');
                 btnAdminStudents.classList.add('hidden');
                 btnAdminAddStudent.classList.add('hidden');
@@ -1141,13 +1121,10 @@
             openModal('admin-trial-modal');
         }
 
-        function abrirPlanClasesAdmin() {
-            cargarPlanClasesAdmin();
-            openModal('admin-weekly-plan-modal');
-        }
-
         function abrirClasesSemanaAdmin() {
-            abrirCalendario();
+            const defaultDiscipline = 'Jiu Jitsu';
+            setAdminWeekDiscipline(defaultDiscipline);
+            openModal('admin-weekly-plan-modal');
         }
 
         function abrirAlumnosInscritosAdmin() {
@@ -1156,6 +1133,7 @@
         }
 
         function abrirAgregarAlumnoAdmin() {
+            actualizarPlanesDisponibles();
             openModal('admin-add-student-modal');
         }
 
@@ -1390,6 +1368,7 @@
             requests.forEach(req => {
                 const item = document.createElement('div');
                 const formattedDate = req.fecha ? new Date(req.fecha).toLocaleString('es-CL') : 'Sin fecha';
+                const planOptions = getPlanOptionsForDiscipline(req.disciplina);
                 item.className = 'info-card';
                 item.style.marginBottom = '10px';
                 item.innerHTML = `
@@ -1402,9 +1381,7 @@
                         <label>Plan a asignar</label>
                         <select id="trial-plan-${req.id}" class="form-control">
                             <option value="">Seleccionar plan</option>
-                            <option value="2x">Plan 2x</option>
-                            <option value="4x">Plan 4x</option>
-                            <option value="FULL">Plan Full</option>
+                            ${planOptions}
                         </select>
                     </div>
                     <button class="btn-submit" style="margin-top:6px;" onclick="agregarAlumnoDesdeTrial('${req.id}')">Agregar alumno</button>
@@ -1451,7 +1428,7 @@
             cargarAlumnosAdmin();
         }
 
-        function cargarPlanClasesAdmin() {
+        function cargarPlanClasesAdmin(discipline) {
             hydrateScheduleEnrollments();
             const container = document.getElementById('admin-weekly-plan');
             const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
@@ -1465,7 +1442,7 @@
                 dayCard.className = 'admin-day-card';
                 dayCard.innerHTML = `<h4>${day}</h4>`;
 
-                const dayClasses = scheduleData.filter(cls => cls.day === day);
+                const dayClasses = scheduleData.filter(cls => cls.day === day && cls.class === discipline);
                 if (dayClasses.length === 0) {
                     dayCard.innerHTML += '<p class="muted">Sin clases</p>';
                 } else {
@@ -1486,6 +1463,22 @@
             });
 
             container.appendChild(grid);
+        }
+
+        function setAdminWeekDiscipline(discipline) {
+            const title = document.querySelector('#admin-weekly-plan-modal .modal-header h3');
+            if (title) {
+                title.innerText = `Plan Semanal: ${discipline}`;
+            }
+            cargarPlanClasesAdmin(discipline);
+        }
+
+        function getPlanOptionsForDiscipline(discipline) {
+            const plans = DISCIPLINE_PLANS[discipline] || [];
+            if (plans.length === 0) {
+                return '<option value="PRUEBA">Clase de prueba</option>';
+            }
+            return plans.map(planKey => `<option value="${planKey}">${PLAN_CONFIG[planKey]?.label || planKey}</option>`).join('');
         }
 
         function cargarClasesPorDisciplinaAdmin() {
@@ -1570,10 +1563,29 @@
                         <button class="btn-paid" onclick="actualizarPago('${student.id}', 'pagado')">Pagado</button>
                         <button class="btn-pending" onclick="actualizarPago('${student.id}', 'pendiente')">Pendiente</button>
                         <button class="btn-overdue" onclick="actualizarPago('${student.id}', 'vencido')">Vencido</button>
+                        <button class="btn-overdue" onclick="eliminarAlumno('${student.id}')">Eliminar</button>
                     </td>
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        function eliminarAlumno(studentId) {
+            const students = loadStudents();
+            const student = students.find(item => item.id === studentId);
+            if (!student) {
+                showToast('Alumno no encontrado.');
+                return;
+            }
+            if (!confirm(`¿Eliminar a ${student.name}?`)) {
+                return;
+            }
+            const updated = students.filter(item => item.id !== studentId);
+            saveStudents(updated);
+            cargarResumenAdmin();
+            cargarAlumnosAdmin();
+            cargarAlumnosNoPagadosAdmin();
+            showToast('Alumno eliminado.');
         }
 
         function actualizarPago(studentId, status) {
@@ -1590,6 +1602,15 @@
             cargarAlumnosNoPagadosAdmin();
             showToast('Estado de pago actualizado');
         }
+
+        function actualizarPlanesDisponibles() {
+            const discipline = document.getElementById('new-disciplina').value;
+            const planSelect = document.getElementById('new-plan');
+            const options = getPlanOptionsForDiscipline(discipline);
+            planSelect.innerHTML = `<option value="">Seleccionar plan</option>${options}<option value="PRUEBA">Clase de prueba</option>`;
+        }
+
+        document.getElementById('new-disciplina').addEventListener('change', actualizarPlanesDisponibles);
 
         document.getElementById('form-new-alumno').addEventListener('submit', (e) => {
             e.preventDefault();
