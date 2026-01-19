@@ -2,13 +2,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const FIREBASE_CONFIG = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  databaseURL: "https://your-project-default-rtdb.firebaseio.com",
-  projectId: "your-project",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "your-messaging-sender-id",
-  appId: "your-app-id"
+ apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
+  authDomain: "elemental-dojo-curico.firebaseapp.com",
+  projectId: "elemental-dojo-curico",
+  storageBucket: "elemental-dojo-curico.firebasestorage.app",
+  messagingSenderId: "39532293146",
+  appId: "1:39532293146:web:0c44ace849aeed5f5335a3"
 };
 
 let firebaseDb = null;
