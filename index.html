@@ -408,7 +408,7 @@
             <div class="logo-text">ELEMENTAL <span>DOJO</span></div>
         </div>
 
-        <button class="btn-login" onclick="openLoginModal()">
+        <button class="btn-login" id="btn-login" onclick="openLoginModal()">
             <i class="fas fa-user-lock"></i> ACCESO
         </button>
     </header>
@@ -416,7 +416,7 @@
     <div class="hero">
         <h1>Reserva tu Clase</h1>
         <p>Gestiona tu asistencia semanal según tu plan y recibe recordatorios de pago.</p>
-        <button class="btn-hero" onclick="openTrialModal()">
+        <button class="btn-hero" id="btn-trial" onclick="openTrialModal()">
             <i class="fas fa-calendar-plus"></i> PRIMERA CLASE GRATIS
         </button>
     </div>
@@ -674,6 +674,7 @@
                             <option value="Jiu Jitsu Kid">Jiu Jitsu Kid</option>
                             <option value="Judo">Judo</option>
                             <option value="Kick Boxing">Kick Boxing</option>
+                            <option value="YouTube">YouTube</option>
                         </select>
                     </div>
 
@@ -749,7 +750,8 @@
             { id: 14, day: 'Viernes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
             { id: 15, day: 'Viernes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
             { id: 16, day: 'Sabado', time: '10:30', class: 'Jiu Jitsu Kid', instructor: 'Prof. Sebastian B', capacity: 25, enrolled: [] },
-            { id: 17, day: 'Sabado', time: '11:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] }
+            { id: 17, day: 'Sabado', time: '11:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
+            { id: 18, day: 'Sabado', time: '11:30', class: 'OpenMAT', instructor: 'Equipo EDC', capacity: 40, enrolled: [], youtubeOnly: true, countsTowardLimit: false }
         ];
 
         const classesData = [
@@ -786,14 +788,16 @@
             "JJ_MUJERES": { label: "Plan mujeres Jiu-Jitsu", weeklyLimit: 3 },
             "JD_STD": { label: "Plan estándar Judo", weeklyLimit: 2 },
             "KB_STD": { label: "Plan estándar Kickboxing", weeklyLimit: 3 },
-            "PRUEBA": { label: "Clase de prueba", weeklyLimit: 1 }
+            "PRUEBA": { label: "Clase de prueba", weeklyLimit: 1 },
+            "YT_OPENMAT": { label: "Plan YouTube OpenMAT", weeklyLimit: 0 }
         };
 
         const DISCIPLINE_PLANS = {
             "Jiu Jitsu": ["JJ_STD", "JJ_FULL", "JJ_REBAJA", "JJ_MUJERES"],
             "Jiu Jitsu Kid": ["JJ_STD", "JJ_REBAJA"],
             "Judo": ["JD_STD"],
-            "Kick Boxing": ["KB_STD"]
+            "Kick Boxing": ["KB_STD"],
+            "YouTube": ["YT_OPENMAT"]
         };
 
         const DEFAULT_STUDENTS = [
@@ -1032,6 +1036,7 @@
                 isAdmin = true;
                 currentUser = { name: 'Administrador', role: 'admin' };
                 mostrarMenuUsuario();
+                updatePublicButtons();
                 closeModal('login-modal');
                 showToast('Bienvenido, admin');
                 return;
@@ -1068,8 +1073,28 @@
             isAdmin = false;
             currentUser = { ...matchedStudent, role: 'member' };
             mostrarMenuUsuario();
+            updatePublicButtons();
             closeModal('login-modal');
             abrirCalendario();
+        }
+
+        function isYoutubeStudent(user) {
+            return Boolean(user && (user.plan === 'YT_OPENMAT' || user.discipline === 'YouTube'));
+        }
+
+        function updatePublicButtons() {
+            const loginButton = document.getElementById('btn-login');
+            const trialButton = document.getElementById('btn-trial');
+            const shouldShow = !currentUser;
+            if (loginButton) loginButton.classList.toggle('hidden', !shouldShow);
+            if (trialButton) trialButton.classList.toggle('hidden', !shouldShow);
+        }
+
+        function getUserWeeklyCount(user) {
+            if (!user) return 0;
+            return scheduleData.filter(c =>
+                c.countsTowardLimit !== false && c.enrolled.some(u => u.name === user.name)
+            ).length;
         }
 
         function mostrarMenuUsuario() {
@@ -1109,6 +1134,7 @@
             currentUser = null;
             isAdmin = false;
             document.getElementById('user-menu').classList.add('hidden');
+            updatePublicButtons();
             showToast('Sesión cerrada');
         }
 
@@ -1242,20 +1268,24 @@
 
             const days = isAdmin
                 ? ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado']
-                : ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+                : (isYoutubeStudent(currentUser) ? ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'] : ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']);
 
             let userCount = 0;
             let planLimit = 0;
 
             if (!isAdmin && currentUser) {
-                userCount = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name)).length;
+                userCount = getUserWeeklyCount(currentUser);
                 planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
 
                 document.getElementById('classes-count').innerText = userCount;
                 document.getElementById('max-classes').innerText = planLimit;
                 document.getElementById('plan-name-display').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
 
-                limitInfo.classList.remove('hidden');
+                if (planLimit > 0) {
+                    limitInfo.classList.remove('hidden');
+                } else {
+                    limitInfo.classList.add('hidden');
+                }
 
                 if (currentUser.paymentStatus === 'pendiente') {
                     paymentBanner.classList.remove('hidden');
@@ -1276,7 +1306,9 @@
             days.forEach(day => {
                 let columnHTML = `<div class="day-column"><div class="day-header">${day}</div>`;
                 const dayClasses = scheduleData.filter(s => s.day === day);
-                const relevantClasses = isAdmin ? dayClasses : dayClasses.filter(c => c.class === currentUser.discipline);
+                const relevantClasses = isAdmin
+                    ? dayClasses
+                    : dayClasses.filter(c => c.youtubeOnly ? isYoutubeStudent(currentUser) : c.class === currentUser.discipline);
 
                 relevantClasses.forEach(c => {
                     const isEnrolled = currentUser && c.enrolled.some(u => u.name === currentUser.name);
@@ -1299,7 +1331,7 @@
                         btnText = 'LLENO';
                         btnClass = 'cal-btn disabled';
                         canReserve = false;
-                    } else if (userCount >= planLimit) {
+                    } else if (c.countsTowardLimit !== false && planLimit > 0 && userCount >= planLimit) {
                         btnText = 'LÍMITE ALCANZADO';
                         btnClass = 'cal-btn disabled';
                         canReserve = false;
@@ -1338,10 +1370,14 @@
 
             const userEnrollments = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name));
             const planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
+            const limitInfo = document.querySelector('#my-classes-modal .plan-limit-info');
 
-            document.getElementById('my-classes-count').innerText = userEnrollments.length;
+            document.getElementById('my-classes-count').innerText = getUserWeeklyCount(currentUser);
             document.getElementById('my-classes-max').innerText = planLimit;
             document.getElementById('my-plan-name').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
+            if (limitInfo) {
+                limitInfo.classList.toggle('hidden', planLimit === 0);
+            }
 
             if (currentUser.paymentStatus === 'pendiente') {
                 paymentBanner.classList.remove('hidden');
@@ -1377,7 +1413,12 @@
         function toggleReservation(classId) {
             const cls = scheduleData.find(c => c.id === classId);
             const planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
-            const currentCount = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name)).length;
+            const currentCount = getUserWeeklyCount(currentUser);
+
+            if (cls.youtubeOnly && !isYoutubeStudent(currentUser)) {
+                showToast('Esta clase es exclusiva para alumnos de YouTube.');
+                return;
+            }
 
             if (currentUser.paymentStatus === 'vencido') {
                 showToast('No puedes reservar con pago vencido.');
@@ -1388,7 +1429,7 @@
                 cls.enrolled = cls.enrolled.filter(u => u.name !== currentUser.name);
                 showToast(`Cancelaste tu asistencia a ${cls.class}`);
             } else {
-                if (currentCount >= planLimit) {
+                if (cls.countsTowardLimit !== false && planLimit > 0 && currentCount >= planLimit) {
                     showToast(`¡Límite alcanzado! Tu plan permite ${planLimit} clases por semana.`);
                     return;
                 }
@@ -1718,6 +1759,7 @@
 
         hydrateScheduleEnrollments();
         renderCards();
+        updatePublicButtons();
     </script>
 </body>
 </html>
