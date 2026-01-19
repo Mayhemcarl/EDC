@@ -596,107 +596,100 @@
         </div>
     </div>
 
-    <!-- MODAL: PANEL ADMIN -->
-    <div class="modal-overlay" id="admin-modal">
-        <div class="modal">
+    <!-- MODAL: ADMIN - CLASES AGENDADAS -->
+    <div class="modal-overlay" id="admin-trial-modal">
+        <div class="modal" style="max-width:700px;">
             <div class="modal-header">
-                <h3>Panel de Administración</h3>
-                <button class="close-modal" onclick="closeModal('admin-modal')">&times;</button>
+                <h3>Clases Agendadas (Prueba)</h3>
+                <button class="close-modal" onclick="closeModal('admin-trial-modal')">&times;</button>
             </div>
             <div class="modal-body admin-panel">
-                <div class="admin-grid">
-                    <div class="admin-card">
-                        <h3>Resumen General</h3>
-                        <p>Total alumnos: <b id="total-alumnos">0</b></p>
-                        <p>Pagos pendientes: <b id="total-pendiente">0</b></p>
-                        <p>Pagos vencidos: <b id="total-vencido">0</b></p>
-                        <p>Pagos al día: <b id="total-pagados">0</b></p>
-                        <ul id="disciplinas-count"></ul>
-                    </div>
-
-                    <div class="admin-card">
-                        <h3>Clases Agendadas (Primera clase gratis)</h3>
-                        <div id="admin-trial-list">
-                            <p class="muted">Cargando solicitudes...</p>
-                        </div>
-                    </div>
-
-                    <div class="admin-card">
-                        <h3>Plan de Clases Semanal</h3>
-                        <div id="admin-weekly-plan">
-                            <p class="muted">Cargando itinerario...</p>
-                        </div>
-                    </div>
-
-                    <div class="admin-card">
-                        <h3>Estado de Pagos</h3>
-                        <p>Total alumnos: <b id="admin-total-students">0</b></p>
-                        <p>Pagos al día: <b id="admin-paid-total">0</b></p>
-                        <p>Pagos pendientes/vencidos: <b id="admin-unpaid-total">0</b></p>
-                        <div id="admin-unpaid-list">
-                            <p class="muted">Cargando alumnos pendientes...</p>
-                        </div>
-                    </div>
+                <div id="admin-trial-list">
+                    <p class="muted">Cargando solicitudes...</p>
                 </div>
+            </div>
+        </div>
+    </div>
 
-                <div class="admin-card" style="margin-top:1.5rem;">
-                    <h3>Clases por Disciplina</h3>
-                    <div id="admin-disciplines-classes">
-                        <p class="muted">Cargando resumen...</p>
+    <!-- MODAL: ADMIN - PLAN SEMANAL -->
+    <div class="modal-overlay" id="admin-weekly-plan-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Plan de Clases Semanal</h3>
+                <button class="close-modal" onclick="closeModal('admin-weekly-plan-modal')">&times;</button>
+            </div>
+            <div class="modal-body admin-panel">
+                <div id="admin-weekly-plan">
+                    <p class="muted">Cargando itinerario...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADMIN - ALUMNOS INSCRITOS -->
+    <div class="modal-overlay" id="admin-students-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Alumnos Inscritos</h3>
+                <button class="close-modal" onclick="closeModal('admin-students-modal')">&times;</button>
+            </div>
+            <div class="modal-body admin-panel">
+                <div style="overflow-x:auto;">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Disciplina</th>
+                                <th>Plan</th>
+                                <th>Clave</th>
+                                <th>Clases Semana</th>
+                                <th>Estado Pago</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-alumnos-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADMIN - AGREGAR ALUMNO -->
+    <div class="modal-overlay" id="admin-add-student-modal">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <h3>Agregar Alumno</h3>
+                <button class="close-modal" onclick="closeModal('admin-add-student-modal')">&times;</button>
+            </div>
+            <div class="modal-body admin-panel">
+                <form id="form-new-alumno">
+                    <div class="form-group"><input type="text" id="new-nombre" class="form-control" placeholder="Nombre completo" required></div>
+                    <div class="form-group"><input type="tel" id="new-telefono" class="form-control" placeholder="Teléfono" required></div>
+                    <div class="form-group"><input type="email" id="new-email" class="form-control" placeholder="Email"></div>
+
+                    <div class="form-group">
+                        <select id="new-plan" class="form-control" required>
+                            <option value="">Seleccionar plan</option>
+                            <option value="2x">Plan 2x</option>
+                            <option value="4x">Plan 4x</option>
+                            <option value="FULL">Plan Full</option>
+                            <option value="PRUEBA">Clase de prueba</option>
+                        </select>
                     </div>
-                </div>
 
-                <div class="admin-card" style="margin-top:1.5rem;">
-                    <h3>Estado de Alumnos</h3>
-                    <div style="overflow-x:auto;">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Disciplina</th>
-                                    <th>Plan</th>
-                                    <th>Clave</th>
-                                    <th>Clases Semana</th>
-                                    <th>Estado Pago</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-alumnos-table"></tbody>
-                        </table>
+                    <div class="form-group">
+                        <select id="new-disciplina" class="form-control" required>
+                            <option value="">Disciplina</option>
+                            <option value="Jiu Jitsu">Jiu Jitsu</option>
+                            <option value="Jiu Jitsu Kid">Jiu Jitsu Kid</option>
+                            <option value="Judo">Judo</option>
+                            <option value="Kick Boxing">Kick Boxing</option>
+                        </select>
                     </div>
-                </div>
 
-                <div class="admin-card" style="margin-top:1.5rem;">
-                    <h3>Registrar Nuevo Alumno</h3>
-                    <form id="form-new-alumno">
-                        <div class="form-group"><input type="text" id="new-nombre" class="form-control" placeholder="Nombre completo" required></div>
-                        <div class="form-group"><input type="tel" id="new-telefono" class="form-control" placeholder="Teléfono" required></div>
-                        <div class="form-group"><input type="email" id="new-email" class="form-control" placeholder="Email"></div>
-
-                        <div class="form-group">
-                            <select id="new-plan" class="form-control" required>
-                                <option value="">Seleccionar plan</option>
-                                <option value="2x">Plan 2x</option>
-                                <option value="4x">Plan 4x</option>
-                                <option value="FULL">Plan Full</option>
-                                <option value="PRUEBA">Clase de prueba</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <select id="new-disciplina" class="form-control" required>
-                                <option value="">Disciplina</option>
-                                <option value="Jiu Jitsu">Jiu Jitsu</option>
-                                <option value="Jiu Jitsu Kid">Jiu Jitsu Kid</option>
-                                <option value="Judo">Judo</option>
-                                <option value="Kick Boxing">Kick Boxing</option>
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn-submit">Registrar Alumno</button>
-                    </form>
-                    <p id="new-alumno-result" class="muted"></p>
-                </div>
+                    <button type="submit" class="btn-submit">Registrar Alumno</button>
+                </form>
+                <p id="new-alumno-result" class="muted"></p>
             </div>
         </div>
     </div>
@@ -736,7 +729,11 @@
         <button id="btnSchedule" onclick="abrirCalendario()"><i class="fas fa-calendar-plus"></i> Agendar</button>
         <button id="btnPaymentStatus" onclick="abrirEstadoPago()"><i class="fas fa-credit-card"></i> Estado de Pago</button>
         <button id="btnProfile" onclick="abrirPerfil()"><i class="fas fa-user"></i> Mi Perfil</button>
-        <button id="btnAdminPanel" class="hidden" onclick="abrirPanelAdmin()"><i class="fas fa-gear"></i> Admin</button>
+        <button id="btnAdminTrials" class="hidden" onclick="abrirClasesAgendadasAdmin()"><i class="fas fa-clipboard-check"></i> Clases agendadas</button>
+        <button id="btnAdminPlan" class="hidden" onclick="abrirPlanClasesAdmin()"><i class="fas fa-list"></i> Plan de clases</button>
+        <button id="btnAdminWeek" class="hidden" onclick="abrirClasesSemanaAdmin()"><i class="fas fa-calendar-week"></i> Semana</button>
+        <button id="btnAdminStudents" class="hidden" onclick="abrirAlumnosInscritosAdmin()"><i class="fas fa-users"></i> Alumnos inscritos</button>
+        <button id="btnAdminAddStudent" class="hidden" onclick="abrirAgregarAlumnoAdmin()"><i class="fas fa-user-plus"></i> Agregar alumnos</button>
         <button onclick="cerrarSesion()"><i class="fas fa-arrow-right-from-bracket"></i> Salir</button>
     </div>
 
@@ -1072,23 +1069,35 @@
             const menu = document.getElementById('user-menu');
             menu.classList.remove('hidden');
 
-            const btnAdmin = document.getElementById('btnAdminPanel');
             const btnPayment = document.getElementById('btnPaymentStatus');
             const btnProfile = document.getElementById('btnProfile');
             const btnMyClasses = document.getElementById('btnMyClasses');
             const btnSchedule = document.getElementById('btnSchedule');
+            const btnAdminTrials = document.getElementById('btnAdminTrials');
+            const btnAdminPlan = document.getElementById('btnAdminPlan');
+            const btnAdminWeek = document.getElementById('btnAdminWeek');
+            const btnAdminStudents = document.getElementById('btnAdminStudents');
+            const btnAdminAddStudent = document.getElementById('btnAdminAddStudent');
             if (currentUser.role === 'admin') {
-                btnAdmin.classList.remove('hidden');
                 btnPayment.classList.add('hidden');
                 btnProfile.classList.add('hidden');
                 btnMyClasses.classList.add('hidden');
                 btnSchedule.classList.add('hidden');
+                btnAdminTrials.classList.remove('hidden');
+                btnAdminPlan.classList.remove('hidden');
+                btnAdminWeek.classList.remove('hidden');
+                btnAdminStudents.classList.remove('hidden');
+                btnAdminAddStudent.classList.remove('hidden');
             } else {
-                btnAdmin.classList.add('hidden');
                 btnPayment.classList.remove('hidden');
                 btnProfile.classList.remove('hidden');
                 btnMyClasses.classList.remove('hidden');
                 btnSchedule.classList.remove('hidden');
+                btnAdminTrials.classList.add('hidden');
+                btnAdminPlan.classList.add('hidden');
+                btnAdminWeek.classList.add('hidden');
+                btnAdminStudents.classList.add('hidden');
+                btnAdminAddStudent.classList.add('hidden');
             }
         }
 
@@ -1127,14 +1136,27 @@
             openModal('my-classes-modal');
         }
 
-        function abrirPanelAdmin() {
-            cargarResumenAdmin();
+        function abrirClasesAgendadasAdmin() {
             cargarSolicitudesTrialAdmin();
+            openModal('admin-trial-modal');
+        }
+
+        function abrirPlanClasesAdmin() {
             cargarPlanClasesAdmin();
-            cargarClasesPorDisciplinaAdmin();
-            cargarAlumnosNoPagadosAdmin();
+            openModal('admin-weekly-plan-modal');
+        }
+
+        function abrirClasesSemanaAdmin() {
+            abrirCalendario();
+        }
+
+        function abrirAlumnosInscritosAdmin() {
             cargarAlumnosAdmin();
-            openModal('admin-modal');
+            openModal('admin-students-modal');
+        }
+
+        function abrirAgregarAlumnoAdmin() {
+            openModal('admin-add-student-modal');
         }
 
         function cargarEstadoPagoUsuario() {
@@ -1163,7 +1185,9 @@
             const limitInfo = document.getElementById('limit-info');
             grid.innerHTML = '';
 
-            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+            const days = isAdmin
+                ? ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado']
+                : ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
             let userCount = 0;
             let planLimit = 0;
@@ -1328,8 +1352,13 @@
         }
 
         function cargarResumenAdmin() {
+            const totalAlumnos = document.getElementById('total-alumnos');
+            if (!totalAlumnos) {
+                return;
+            }
+
             const students = loadStudents();
-            document.getElementById('total-alumnos').innerText = students.length;
+            totalAlumnos.innerText = students.length;
             document.getElementById('total-pendiente').innerText = students.filter(s => s.paymentStatus === 'pendiente').length;
             document.getElementById('total-vencido').innerText = students.filter(s => s.paymentStatus === 'vencido').length;
             document.getElementById('total-pagados').innerText = students.filter(s => s.paymentStatus === 'pagado').length;
@@ -1369,9 +1398,57 @@
                     <p><strong>Teléfono:</strong> ${req.telefono || '-'}</p>
                     <p><strong>Email:</strong> ${req.email || '-'}</p>
                     <p class="muted">Registrado: ${formattedDate}</p>
+                    <div class="form-group" style="margin-top:10px;">
+                        <label>Plan a asignar</label>
+                        <select id="trial-plan-${req.id}" class="form-control">
+                            <option value="">Seleccionar plan</option>
+                            <option value="2x">Plan 2x</option>
+                            <option value="4x">Plan 4x</option>
+                            <option value="FULL">Plan Full</option>
+                        </select>
+                    </div>
+                    <button class="btn-submit" style="margin-top:6px;" onclick="agregarAlumnoDesdeTrial('${req.id}')">Agregar alumno</button>
                 `;
                 container.appendChild(item);
             });
+        }
+
+        function agregarAlumnoDesdeTrial(requestId) {
+            const requests = loadTrialRequests();
+            const request = requests.find(req => req.id === requestId);
+            if (!request) {
+                showToast('Solicitud no encontrada.');
+                return;
+            }
+
+            const planSelect = document.getElementById(`trial-plan-${requestId}`);
+            const planValue = planSelect ? planSelect.value : '';
+            if (!planValue) {
+                showToast('Selecciona un plan para continuar.');
+                return;
+            }
+
+            const students = loadStudents();
+            const discipline = request.disciplina || 'Sin disciplina';
+            const accessCode = generateAccessCode({ discipline });
+            const newStudent = {
+                id: `s${Date.now()}`,
+                name: request.nombre,
+                discipline,
+                plan: planValue,
+                paymentStatus: 'pendiente',
+                phone: request.telefono || '',
+                email: request.email || '',
+                paymentDue: new Date().toISOString().split('T')[0],
+                accessCode
+            };
+
+            students.push(newStudent);
+            saveStudents(students);
+            saveTrialRequests(requests.filter(req => req.id !== requestId));
+            showToast(`Alumno ${newStudent.name} agregado.`);
+            cargarSolicitudesTrialAdmin();
+            cargarAlumnosAdmin();
         }
 
         function cargarPlanClasesAdmin() {
@@ -1432,6 +1509,9 @@
             const students = loadStudents();
             const container = document.getElementById('admin-unpaid-list');
             const total = document.getElementById('admin-unpaid-total');
+            if (!container || !total) {
+                return;
+            }
             const unpaid = students.filter(student => student.paymentStatus !== 'pagado');
             const paid = students.filter(student => student.paymentStatus === 'pagado');
 
