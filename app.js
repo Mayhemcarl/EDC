@@ -1061,48 +1061,133 @@ async function cargarAlumnosNoPagadosAdmin() {
   });
 }
 
+function createAdminStudentsTableHead() {
+  const thead = document.createElement("thead");
+  thead.innerHTML = `
+    <tr>
+      <th>Nombre</th>
+      <th>Disciplina</th>
+      <th>Plan</th>
+      <th>Clave</th>
+      <th>Clases Semana</th>
+      <th>Límite semanal</th>
+      <th>Estado Pago</th>
+      <th>Acción</th>
+    </tr>
+  `;
+  return thead;
+}
+
+function createAdminStudentRow(student, enrollments) {
+  const classCount = Object.values(enrollments).filter(list =>
+    list.some(enrolled => enrolled.name === student.name)
+  ).length;
+  const planLimit = PLAN_CONFIG[student.plan]?.weeklyLimit || 0;
+  const overrideValue = typeof student.weeklyLimitOverride === "number"
+    ? student.weeklyLimitOverride
+    : "";
+  const statusClass = student.paymentStatus === "pagado"
+    ? "status-paid"
+    : student.paymentStatus === "pendiente"
+      ? "status-pending"
+      : "status-overdue";
+  const statusText = student.paymentStatus === "pagado"
+    ? "Pagado"
+    : student.paymentStatus === "pendiente"
+      ? "Pendiente"
+      : "Vencido";
+  const accessKey = student.accessCode || student.name;
+
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td>${student.name}</td>
+    <td>${student.discipline}</td>
+    <td>${PLAN_CONFIG[student.plan]?.label || student.plan}</td>
+    <td><span class="admin-key-pill">${accessKey}</span></td>
+    <td>${classCount}</td>
+    <td>
+      <div class="admin-inline">
+        <input type="number" min="0" class="form-control" id="limit-${student.id}" value="${overrideValue}">
+        <button class="btn-login" onclick="actualizarLimiteSemanal('${student.id}')">Guardar</button>
+      </div>
+      <span class="admin-helper">Plan: ${planLimit} clases</span>
+    </td>
+    <td><span class="status-pill ${statusClass}">${statusText}</span></td>
+    <td class="admin-actions">
+      <button class="btn-paid" onclick="actualizarPago('${student.id}', 'pagado')">Pagado</button>
+      <button class="btn-pending" onclick="actualizarPago('${student.id}', 'pendiente')">Pendiente</button>
+      <button class="btn-overdue" onclick="actualizarPago('${student.id}', 'vencido')">Vencido</button>
+      <button class="btn-overdue" onclick="eliminarAlumno('${student.id}')">Eliminar</button>
+    </td>
+  `;
+  return row;
+}
+
+function buildAdminStudentsSection(title, students, enrollments) {
+  const section = document.createElement("div");
+  section.className = "admin-students-section";
+  const heading = document.createElement("h4");
+  heading.textContent = title;
+  section.appendChild(heading);
+
+  if (students.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "admin-students-empty";
+    empty.textContent = "Sin alumnos registrados.";
+    section.appendChild(empty);
+    return section;
+  }
+
+  const table = document.createElement("table");
+  table.className = "admin-table";
+  table.appendChild(createAdminStudentsTableHead());
+  const tbody = document.createElement("tbody");
+  students.forEach(student => {
+    tbody.appendChild(createAdminStudentRow(student, enrollments));
+  });
+  table.appendChild(tbody);
+  section.appendChild(table);
+  return section;
+}
+
 async function cargarAlumnosAdmin() {
   const students = cachedStudents.length ? cachedStudents : await loadStudents();
   const enrollments = cachedEnrollments || await getCurrentWeekEnrollments();
-  const tbody = document.getElementById("admin-alumnos-table");
-  tbody.innerHTML = "";
+  const container = document.getElementById("admin-alumnos-container");
+  container.innerHTML = "";
+
+  if (students.length === 0) {
+    container.innerHTML = '<p class="muted">Sin alumnos registrados.</p>';
+    return;
+  }
+
+  const disciplineLabels = {
+    "Jiu Jitsu": "Jiu-Jitsu",
+    "Kick Boxing": "Kickboxing",
+    "Judo": "Judo"
+  };
+  const disciplineOrder = ["Jiu Jitsu", "Kick Boxing", "Judo"];
+  const grouped = new Map();
+  disciplineOrder.forEach(discipline => grouped.set(discipline, []));
 
   students.forEach(student => {
-    const classCount = Object.values(enrollments).filter(list =>
-      list.some(enrolled => enrolled.name === student.name)
-    ).length;
-    const planLimit = PLAN_CONFIG[student.plan]?.weeklyLimit || 0;
-    const overrideValue = typeof student.weeklyLimitOverride === "number"
-      ? student.weeklyLimitOverride
-      : "";
+    const rawDiscipline = student.discipline?.trim() || "Otros";
+    const key = grouped.has(rawDiscipline) ? rawDiscipline : rawDiscipline;
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key).push(student);
+  });
 
-    const statusClass = student.paymentStatus === "pagado" ? "status-paid" : student.paymentStatus === "pendiente" ? "status-pending" : "status-overdue";
-    const statusText = student.paymentStatus === "pagado" ? "Pagado" : student.paymentStatus === "pendiente" ? "Pendiente" : "Vencido";
-    const accessKey = student.accessCode || student.name;
+  const extraDisciplines = Array.from(grouped.keys())
+    .filter(key => !disciplineOrder.includes(key))
+    .sort((a, b) => a.localeCompare(b));
 
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${student.name}</td>
-      <td>${student.discipline}</td>
-      <td>${PLAN_CONFIG[student.plan]?.label || student.plan}</td>
-      <td><span class="admin-key-pill">${accessKey}</span></td>
-      <td>${classCount}</td>
-      <td>
-        <div class="admin-inline">
-          <input type="number" min="0" class="form-control" id="limit-${student.id}" value="${overrideValue}">
-          <button class="btn-login" onclick="actualizarLimiteSemanal('${student.id}')">Guardar</button>
-        </div>
-        <span class="admin-helper">Plan: ${planLimit} clases</span>
-      </td>
-      <td><span class="status-pill ${statusClass}">${statusText}</span></td>
-      <td class="admin-actions">
-        <button class="btn-paid" onclick="actualizarPago('${student.id}', 'pagado')">Pagado</button>
-        <button class="btn-pending" onclick="actualizarPago('${student.id}', 'pendiente')">Pendiente</button>
-        <button class="btn-overdue" onclick="actualizarPago('${student.id}', 'vencido')">Vencido</button>
-        <button class="btn-overdue" onclick="eliminarAlumno('${student.id}')">Eliminar</button>
-      </td>
-    `;
-    tbody.appendChild(row);
+  [...disciplineOrder, ...extraDisciplines].forEach(discipline => {
+    const list = grouped.get(discipline) || [];
+    const label = disciplineLabels[discipline] || discipline;
+    const title = `Alumnos de ${label}`;
+    container.appendChild(buildAdminStudentsSection(title, list, enrollments));
   });
 }
 
