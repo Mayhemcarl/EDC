@@ -10,6 +10,14 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /weekly_enrollments/{weekKey} {
+      allow read, write: if true;
+    }
+
+    match /trial_requests/{requestId} {
+      allow read, write: if true;
+    }
+
     match /meta/{docId} {
       allow read, write: if true;
     }
