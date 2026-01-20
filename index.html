@@ -867,9 +867,9 @@
         function openLoginModal() { openModal('login-modal'); }
 
         function loadStudents() {
-            const stored = localStorage.getItem(STORAGE_KEYS.students);
+            const stored = firebaseDb.getItem(STORAGE_KEYS.students);
             if (!stored) {
-                localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(DEFAULT_STUDENTS));
+                firebaseDb.setItem(STORAGE_KEYS.students, JSON.stringify(DEFAULT_STUDENTS));
                 return [...DEFAULT_STUDENTS];
             }
             const students = JSON.parse(stored);
@@ -881,16 +881,16 @@
         }
 
         function saveStudents(students) {
-            localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(students));
+            firebaseDb.setItem(STORAGE_KEYS.students, JSON.stringify(students));
         }
 
         function loadTrialRequests() {
-            const stored = localStorage.getItem(STORAGE_KEYS.trialRequests);
+            const stored = firebaseDb.getItem(STORAGE_KEYS.trialRequests);
             return stored ? JSON.parse(stored) : [];
         }
 
         function saveTrialRequests(requests) {
-            localStorage.setItem(STORAGE_KEYS.trialRequests, JSON.stringify(requests));
+            firebaseDb.setItem(STORAGE_KEYS.trialRequests, JSON.stringify(requests));
         }
 
         function loadMeta() {
@@ -909,34 +909,7 @@
             return `${prefix}-${random}`;
         }
 
-        function buildAccessMessage(student) {
-            const username = student?.name || 'Alumno';
-            const accessKey = student?.accessCode || student?.name || 'pendiente';
-            return `Hola ${username}, tu usuario es ${username} y tu clave de acceso es ${accessKey}.`;
-        }
-
-        function notifyStudentAccess(student) {
-            const message = buildAccessMessage(student);
-            const phone = (student?.phone || '').replace(/\s+/g, '');
-            const email = (student?.email || '').trim();
-
-            if (phone) {
-                const smsUrl = `sms:${encodeURIComponent(phone)}?body=${encodeURIComponent(message)}`;
-                window.open(smsUrl, '_blank', 'noopener');
-                showToast('Mensaje de acceso listo para enviar por SMS.');
-                return;
-            }
-
-            if (email) {
-                const subject = 'Acceso Elemental Dojo';
-                const mailUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
-                window.open(mailUrl, '_blank', 'noopener');
-                showToast('Mensaje de acceso listo para enviar por correo.');
-                return;
-            }
-
-            showToast('No hay teléfono ni correo para enviar el acceso.');
-        }
+        
 
         function generateStudentUid() {
             if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
