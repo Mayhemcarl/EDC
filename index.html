@@ -212,6 +212,23 @@
             box-shadow: var(--shadow);
             margin-top: 20px;
         }
+        .public-schedules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+        .public-schedule-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+        }
+        .public-schedule-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            color: var(--secondary);
+        }
         .timetable {
             width: 100%;
             border-collapse: collapse;
@@ -428,6 +445,7 @@
             .hero { min-height: 50vh; }
             .btn-hero { width: 100%; justify-content: center; }
             .admin-table th, .admin-table td { font-size: 0.8rem; }
+            .public-schedule-card { padding: 1.1rem; }
         }
     </style>
 </head>
@@ -462,6 +480,14 @@
                 <p>Haz clic para ver el horario de la disciplina</p>
             </div>
             <div class="classes-grid" id="classes-grid"></div>
+        </section>
+
+        <section>
+            <div class="section-title">
+                <h2>Horarios por Disciplina</h2>
+                <p>Visualiza el calendario semanal completo por disciplina.</p>
+            </div>
+            <div class="public-schedules-grid" id="public-schedules-grid"></div>
         </section>
 
         <section class="experience-section">
@@ -862,6 +888,7 @@
         let cachedTrialRequests = [];
         let cachedEnrollments = {};
         let cachedMeta = {};
+        const TRIAL_REQUESTS_STORAGE_KEY = 'edc-trial-requests';
 
         function isFirebaseConfigured() {
             return Object.values(FIREBASE_CONFIG).every(value =>
@@ -938,37 +965,23 @@
         }
 
         async function loadTrialRequests() {
-            if (!isFirebaseConfigured()) {
-                return cachedTrialRequests;
+            const stored = localStorage.getItem(TRIAL_REQUESTS_STORAGE_KEY);
+            if (stored) {
+                try {
+                    cachedTrialRequests = JSON.parse(stored) || [];
+                } catch (error) {
+                    console.warn('No se pudo leer solicitudes almacenadas.', error);
+                    cachedTrialRequests = [];
+                }
+            } else {
+                cachedTrialRequests = [];
             }
-            const db = getFirestoreDb();
-            const snapshot = await db.collection('trialRequests').get();
-            cachedTrialRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             return cachedTrialRequests;
         }
 
         async function saveTrialRequests(requests) {
-            if (!isFirebaseConfigured()) {
-                cachedTrialRequests = [...requests];
-                return;
-            }
-            const db = getFirestoreDb();
-            const snapshot = await db.collection('trialRequests').get();
-            const existingIds = new Set(snapshot.docs.map(doc => doc.id));
-            const incomingIds = new Set(requests.map(request => request.id));
-            const batch = db.batch();
-            requests.forEach(request => {
-                const docRef = db.collection('trialRequests').doc(request.id);
-                batch.set(docRef, request);
-            });
-            existingIds.forEach(id => {
-                if (!incomingIds.has(id)) {
-                    const docRef = db.collection('trialRequests').doc(id);
-                    batch.delete(docRef);
-                }
-            });
-            await batch.commit();
             cachedTrialRequests = [...requests];
+            localStorage.setItem(TRIAL_REQUESTS_STORAGE_KEY, JSON.stringify(cachedTrialRequests));
         }
 
         async function loadMeta() {
@@ -1146,25 +1159,24 @@
             });
         }
 
-        function openPublicSchedule(disciplineName) {
-            const tbody = document.getElementById('public-schedule-table');
-            document.getElementById('public-schedule-title').innerText = `Horarios: ${disciplineName}`;
-            tbody.innerHTML = '';
-
-            const filteredSchedule = scheduleData.filter(s => {
+        function getFilteredScheduleByDiscipline(disciplineName) {
+            return scheduleData.filter(s => {
                 if (disciplineName === 'Jiu Jitsu') {
                     return s.class === disciplineName || s.openMatOnly;
                 }
                 return s.class === disciplineName;
             });
-            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+        }
 
+        function buildScheduleTableHTML(disciplineName) {
+            const filteredSchedule = getFilteredScheduleByDiscipline(disciplineName);
+            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
             const times = [...new Set(filteredSchedule.map(s => s.time))].sort();
 
             let headerRow = '<tr><th>Hora</th>';
             days.forEach(d => headerRow += `<th>${d}</th>`);
             headerRow += '</tr>';
-            tbody.innerHTML = headerRow;
+            let tableHtml = headerRow;
 
             times.forEach(time => {
                 let row = `<tr><td><span class="tt-time">${time}</span></td>`;
@@ -1185,8 +1197,35 @@
                     }
                 });
                 row += '</tr>';
-                tbody.innerHTML += row;
+                tableHtml += row;
             });
+            return tableHtml;
+        }
+
+        function renderPublicSchedules() {
+            const container = document.getElementById('public-schedules-grid');
+            if (!container) return;
+            container.innerHTML = '';
+            classesData.forEach(cls => {
+                const tableHtml = buildScheduleTableHTML(cls.name);
+                const card = document.createElement('div');
+                card.className = 'public-schedule-card';
+                card.innerHTML = `
+                    <h3>${cls.name}</h3>
+                    <div class="timetable-container">
+                        <table class="timetable">
+                            <tbody>${tableHtml}</tbody>
+                        </table>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function openPublicSchedule(disciplineName) {
+            const tbody = document.getElementById('public-schedule-table');
+            document.getElementById('public-schedule-title').innerText = `Horarios: ${disciplineName}`;
+            tbody.innerHTML = buildScheduleTableHTML(disciplineName);
 
             openModal('public-schedule-modal');
         }
@@ -2214,6 +2253,7 @@
             await runMonthlyPaymentReset();
             await hydrateScheduleEnrollments();
             renderCards();
+            renderPublicSchedules();
             updatePublicButtons();
         })();
     </script>
