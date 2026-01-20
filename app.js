@@ -22,9 +22,9 @@ const FIREBASE_CONFIG = {
 let firebaseDb = null;
 
 // Colecciones esperadas en Firestore:
-// - students/{id} (id, uid, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride)
+// - students/{id} (id, uid, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride, classDay, classTime)
 // - weekly_enrollments/{weekKey} (enrollments)
-// - trial_requests/{id} (id, nombre, disciplina, telefono, email, fecha)
+// - trial_requests/{id} (id, nombre, disciplina, telefono, email, fecha, plan, paymentStatus, classDay, classTime)
 // - meta/system (id, lastWeeklyReset, lastPaymentResetMonth, lastPaymentOverdueMonth)
 
 const ADMIN_USER = "EDC2019";
@@ -105,6 +105,8 @@ const DAY_INDEX = {
   "Sabado": 6
 };
 
+const WEEK_DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sabado"];
+
 const MIN_RESERVATION_NOTICE_MINUTES = 60;
 
 const DEFAULT_STUDENTS = [
@@ -148,7 +150,10 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove("show"), 3000);
 }
 
-function openTrialModal() { openModal("trial-modal"); }
+function openTrialModal() {
+  openModal("trial-modal");
+  updateTrialScheduleOptions();
+}
 function openLoginModal() { openModal("login-modal"); }
 
 async function loadStudents() {
@@ -343,6 +348,75 @@ function applyEnrollmentsToSchedule(weekEnrollments) {
   });
 }
 
+function getScheduleMapForDiscipline(discipline) {
+  if (!discipline) {
+    return new Map();
+  }
+  const relevantClasses = scheduleData.filter(cls => {
+    if (discipline === "Jiu Jitsu") {
+      return cls.class === discipline || cls.openMatOnly;
+    }
+    return cls.class === discipline;
+  });
+  const scheduleMap = new Map();
+  relevantClasses.forEach(cls => {
+    if (!scheduleMap.has(cls.day)) {
+      scheduleMap.set(cls.day, new Set());
+    }
+    scheduleMap.get(cls.day).add(cls.time);
+  });
+  return scheduleMap;
+}
+
+function populateScheduleDays(daySelect, scheduleMap) {
+  if (!daySelect) return;
+  const dayOptions = WEEK_DAYS
+    .filter(day => scheduleMap.has(day))
+    .map(day => `<option value="${day}">${day}</option>`)
+    .join("");
+  daySelect.innerHTML = `<option value="">Selecciona día</option>${dayOptions}`;
+}
+
+function populateScheduleTimes(timeSelect, scheduleMap, day) {
+  if (!timeSelect) return;
+  const times = scheduleMap.get(day) ? Array.from(scheduleMap.get(day)) : [];
+  times.sort((a, b) => a.localeCompare(b, "es-CL"));
+  const timeOptions = times.map(time => `<option value="${time}">${time}</option>`).join("");
+  timeSelect.innerHTML = `<option value="">Selecciona horario</option>${timeOptions}`;
+}
+
+function updateTrialScheduleOptions() {
+  const discipline = document.getElementById("t-disc")?.value || "";
+  const daySelect = document.getElementById("t-day");
+  const timeSelect = document.getElementById("t-time");
+  const scheduleMap = getScheduleMapForDiscipline(discipline);
+  populateScheduleDays(daySelect, scheduleMap);
+  populateScheduleTimes(timeSelect, scheduleMap, "");
+}
+
+function updateTrialScheduleTimes() {
+  const discipline = document.getElementById("t-disc")?.value || "";
+  const day = document.getElementById("t-day")?.value || "";
+  const scheduleMap = getScheduleMapForDiscipline(discipline);
+  populateScheduleTimes(document.getElementById("t-time"), scheduleMap, day);
+}
+
+function updateNewStudentScheduleOptions() {
+  const discipline = document.getElementById("new-disciplina")?.value || "";
+  const daySelect = document.getElementById("new-class-day");
+  const timeSelect = document.getElementById("new-class-time");
+  const scheduleMap = getScheduleMapForDiscipline(discipline);
+  populateScheduleDays(daySelect, scheduleMap);
+  populateScheduleTimes(timeSelect, scheduleMap, "");
+}
+
+function updateNewStudentScheduleTimes() {
+  const discipline = document.getElementById("new-disciplina")?.value || "";
+  const day = document.getElementById("new-class-day")?.value || "";
+  const scheduleMap = getScheduleMapForDiscipline(discipline);
+  populateScheduleTimes(document.getElementById("new-class-time"), scheduleMap, day);
+}
+
 function renderCards() {
   const container = document.getElementById("classes-grid");
   container.innerHTML = "";
@@ -418,7 +492,9 @@ async function submitTrial(e) {
     nombre: document.getElementById("t-name").value,
     disciplina: document.getElementById("t-disc").value,
     telefono: document.getElementById("t-phone").value,
-    email: document.getElementById("t-email").value
+    email: document.getElementById("t-email").value,
+    classDay: document.getElementById("t-day")?.value || "",
+    classTime: document.getElementById("t-time")?.value || ""
   };
 
   try {
@@ -429,7 +505,11 @@ async function submitTrial(e) {
       disciplina: data.disciplina,
       telefono: data.telefono,
       email: data.email,
-      fecha: new Date().toISOString()
+      fecha: new Date().toISOString(),
+      plan: "PRUEBA",
+      paymentStatus: "pendiente",
+      classDay: data.classDay,
+      classTime: data.classTime
     });
     await saveTrialRequests(requests);
     showToast("Solicitud enviada correctamente");
@@ -966,11 +1046,19 @@ async function cargarSolicitudesTrialAdmin() {
     const item = document.createElement("div");
     const formattedDate = req.fecha ? new Date(req.fecha).toLocaleString("es-CL") : "Sin fecha";
     const planOptions = getPlanOptionsForDiscipline(req.disciplina);
+    const classDay = req.classDay || "-";
+    const classTime = req.classTime || "-";
+    const paymentStatus = req.paymentStatus || "pendiente";
+    const paymentLabel = paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1);
     item.className = "info-card";
     item.style.marginBottom = "10px";
     item.innerHTML = `
       <h3>${req.nombre}</h3>
       <p><strong>Disciplina:</strong> ${req.disciplina || "-"}</p>
+      <p><strong>Día de clase:</strong> ${classDay}</p>
+      <p><strong>Horario:</strong> ${classTime}</p>
+      <p><strong>Plan:</strong> ${req.plan || "PRUEBA"}</p>
+      <p><strong>Estado de pago:</strong> ${paymentLabel}</p>
       <p><strong>Teléfono:</strong> ${req.telefono || "-"}</p>
       <p><strong>Email:</strong> ${req.email || "-"}</p>
       <p class="muted">Registrado: ${formattedDate}</p>
@@ -981,7 +1069,10 @@ async function cargarSolicitudesTrialAdmin() {
           ${planOptions}
         </select>
       </div>
-      <button class="btn-submit" style="margin-top:6px;" onclick="agregarAlumnoDesdeTrial('${req.id}')">Agregar alumno</button>
+      <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;">
+        <button class="btn-submit" onclick="agregarAlumnoDesdeTrial('${req.id}')">Agregar alumno</button>
+        <button class="btn-overdue" onclick="eliminarSolicitudTrial('${req.id}')">Eliminar</button>
+      </div>
     `;
     container.appendChild(item);
   });
@@ -1059,11 +1150,13 @@ async function agregarAlumnoDesdeTrial(requestId) {
     name: request.nombre,
     discipline,
     plan: planValue,
-    paymentStatus: "pendiente",
+    paymentStatus: request.paymentStatus || "pendiente",
     phone: request.telefono || "",
     email: request.email || "",
     paymentDue: new Date().toISOString().split("T")[0],
-    accessCode
+    accessCode,
+    classDay: request.classDay || "",
+    classTime: request.classTime || ""
   };
 
   students.push(newStudent);
@@ -1073,6 +1166,17 @@ async function agregarAlumnoDesdeTrial(requestId) {
   notifyStudentAccess(newStudent);
   await cargarSolicitudesTrialAdmin();
   await cargarAlumnosAdmin();
+}
+
+async function eliminarSolicitudTrial(requestId) {
+  if (!confirm("¿Eliminar esta solicitud de clase de prueba?")) {
+    return;
+  }
+  const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
+  const updated = requests.filter(req => req.id !== requestId);
+  await saveTrialRequests(updated);
+  showToast("Solicitud eliminada.");
+  await cargarSolicitudesTrialAdmin();
 }
 
 async function cargarPlanClasesAdmin(discipline) {
@@ -1411,7 +1515,9 @@ async function registrarNuevoAlumno(e) {
     phone: document.getElementById("new-telefono").value.trim(),
     email: document.getElementById("new-email").value.trim(),
     paymentDue: new Date().toISOString().split("T")[0],
-    accessCode
+    accessCode,
+    classDay: document.getElementById("new-class-day")?.value || "",
+    classTime: document.getElementById("new-class-time")?.value || ""
   };
 
   students.push(newStudent);
@@ -1599,12 +1705,30 @@ async function init() {
   const disciplineSelect = document.getElementById("new-disciplina");
   if (disciplineSelect) {
     disciplineSelect.addEventListener("change", actualizarPlanesDisponibles);
+    disciplineSelect.addEventListener("change", updateNewStudentScheduleOptions);
   }
 
   const newStudentForm = document.getElementById("form-new-alumno");
   if (newStudentForm) {
     newStudentForm.addEventListener("submit", registrarNuevoAlumno);
   }
+
+  const trialDisciplineSelect = document.getElementById("t-disc");
+  if (trialDisciplineSelect) {
+    trialDisciplineSelect.addEventListener("change", updateTrialScheduleOptions);
+  }
+
+  const trialDaySelect = document.getElementById("t-day");
+  if (trialDaySelect) {
+    trialDaySelect.addEventListener("change", updateTrialScheduleTimes);
+  }
+
+  const newStudentDaySelect = document.getElementById("new-class-day");
+  if (newStudentDaySelect) {
+    newStudentDaySelect.addEventListener("change", updateNewStudentScheduleTimes);
+  }
+
+  updateNewStudentScheduleOptions();
 }
 
 window.openModal = openModal;
@@ -1631,5 +1755,6 @@ window.actualizarPago = actualizarPago;
 window.eliminarAlumno = eliminarAlumno;
 window.actualizarLimiteSemanal = actualizarLimiteSemanal;
 window.agregarAlumnoDesdeTrial = agregarAlumnoDesdeTrial;
+window.eliminarSolicitudTrial = eliminarSolicitudTrial;
 
 init();
