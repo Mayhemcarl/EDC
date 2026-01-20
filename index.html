@@ -762,11 +762,33 @@
         <button onclick="cerrarSesion()"><i class="fas fa-arrow-right-from-bracket"></i> Salir</button>
     </div>
 
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import {
+            collection,
+            doc,
+            getDoc,
+            getDocs,
+            getFirestore,
+            onSnapshot,
+            setDoc,
+            writeBatch
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzHj0JGyuEWjI7B9KiLVQRTzNe4avfTEYK6GShiLkngSYUmpXXgCVe0fHKNhulFIqTyw/exec';
 
         const ADMIN_USER = 'EDC2019';
         const ADMIN_CODE = 'EDC2057';
+
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
+            authDomain: "elemental-dojo-curico.firebaseapp.com",
+            projectId: "elemental-dojo-curico",
+            storageBucket: "elemental-dojo-curico.firebasestorage.app",
+            messagingSenderId: "39532293146",
+            appId: "1:39532293146:web:0c44ace849aeed5f5335a3"
+        };
+
+        const META_ID = "system";
 
         const scheduleData = [
             { id: 1, day: 'Lunes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
@@ -857,16 +879,51 @@
             { id: "s4", uid: "uid-s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
         ];
 
-        const STORAGE_KEYS = {
-            students: "edc_students",
-            enrollments: "edc_enrollments",
-            trialRequests: "edc_trial_requests",
-            meta: "edc_meta"
-        };
-
+        let firebaseDb = null;
         let currentUser = null;
         let isAdmin = false;
         let adminStudentsFilter = 'Jiu Jitsu';
+        let cachedStudents = [];
+        let cachedTrialRequests = [];
+        let cachedEnrollments = {};
+        let cachedMeta = {};
+
+        function isFirebaseConfigured() {
+            return Object.values(FIREBASE_CONFIG).every(value =>
+                typeof value === "string" && value.trim() !== "" && !value.includes("your-")
+            );
+        }
+
+        function getFirebaseDb() {
+            if (!isFirebaseConfigured()) {
+                return null;
+            }
+            if (!firebaseDb) {
+                const app = initializeApp(FIREBASE_CONFIG);
+                firebaseDb = getFirestore(app);
+            }
+            return firebaseDb;
+        }
+
+        async function syncCollectionById(collectionName, items) {
+            const db = getFirebaseDb();
+            const colRef = collection(db, collectionName);
+            const snapshot = await getDocs(colRef);
+            const batch = writeBatch(db);
+            const incomingIds = new Set(items.map(item => item.id));
+
+            snapshot.forEach(docSnap => {
+                if (!incomingIds.has(docSnap.id)) {
+                    batch.delete(docSnap.ref);
+                }
+            });
+
+            items.forEach(item => {
+                batch.set(doc(db, collectionName, item.id), item);
+            });
+
+            await batch.commit();
+        }
 
         function openModal(id) { document.getElementById(id).classList.add('open'); }
         function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -883,40 +940,74 @@
         }
         function openLoginModal() { openModal('login-modal'); }
 
-        function loadStudents() {
-            const stored = localStorage.getItem(STORAGE_KEYS.students);
-            if (!stored) {
-                localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(DEFAULT_STUDENTS));
+        async function loadStudents() {
+            if (!isFirebaseConfigured()) {
                 return [...DEFAULT_STUDENTS];
             }
-            const students = JSON.parse(stored);
+            const db = getFirebaseDb();
+            const snapshot = await getDocs(collection(db, "students"));
+            if (snapshot.empty) {
+                await saveStudents(DEFAULT_STUDENTS);
+                return [...DEFAULT_STUDENTS];
+            }
+            const students = snapshot.docs.map(docSnap => docSnap.data());
             const { normalized, updated } = ensureStudentUids(students);
             if (updated) {
-                saveStudents(normalized);
+                await saveStudents(normalized);
             }
             return normalized;
         }
 
-        function saveStudents(students) {
-            localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(students));
+        async function saveStudents(students) {
+            if (!isFirebaseConfigured()) {
+                cachedStudents = [...students];
+                return;
+            }
+            await syncCollectionById("students", students);
+            cachedStudents = [...students];
         }
 
-        function loadTrialRequests() {
-            const stored = localStorage.getItem(STORAGE_KEYS.trialRequests);
-            return stored ? JSON.parse(stored) : [];
+        async function loadTrialRequests() {
+            if (!isFirebaseConfigured()) {
+                return [];
+            }
+            const db = getFirebaseDb();
+            const snapshot = await getDocs(collection(db, "trial_requests"));
+            if (snapshot.empty) {
+                return [];
+            }
+            return snapshot.docs.map(docSnap => docSnap.data());
         }
 
-        function saveTrialRequests(requests) {
-            localStorage.setItem(STORAGE_KEYS.trialRequests, JSON.stringify(requests));
+        async function saveTrialRequests(requests) {
+            if (!isFirebaseConfigured()) {
+                cachedTrialRequests = [...requests];
+                return;
+            }
+            await syncCollectionById("trial_requests", requests);
+            cachedTrialRequests = [...requests];
         }
 
-        function loadMeta() {
-            const stored = localStorage.getItem(STORAGE_KEYS.meta);
-            return stored ? JSON.parse(stored) : {};
+        async function loadMeta() {
+            if (!isFirebaseConfigured()) {
+                return {};
+            }
+            const db = getFirebaseDb();
+            const snapshot = await getDoc(doc(db, "meta", META_ID));
+            if (!snapshot.exists()) {
+                return {};
+            }
+            return snapshot.data() || {};
         }
 
-        function saveMeta(meta) {
-            localStorage.setItem(STORAGE_KEYS.meta, JSON.stringify(meta));
+        async function saveMeta(meta) {
+            if (!isFirebaseConfigured()) {
+                cachedMeta = { ...meta };
+                return;
+            }
+            const db = getFirebaseDb();
+            await setDoc(doc(db, "meta", META_ID), meta);
+            cachedMeta = { ...meta };
         }
 
         function generateAccessCode(student) {
@@ -983,68 +1074,74 @@
             return `${temp.getUTCFullYear()}-W${weekNum}`;
         }
 
-        function loadEnrollments() {
-            const stored = localStorage.getItem(STORAGE_KEYS.enrollments);
-            return stored ? JSON.parse(stored) : {};
-        }
-
-        function saveEnrollments(data) {
-            localStorage.setItem(STORAGE_KEYS.enrollments, JSON.stringify(data));
-        }
-
-        function getCurrentWeekEnrollments() {
-            const all = loadEnrollments();
+        async function getCurrentWeekEnrollments() {
             const weekKey = getWeekKey();
-            return all[weekKey] || {};
+            if (!isFirebaseConfigured()) {
+                return {};
+            }
+            const db = getFirebaseDb();
+            const snapshot = await getDoc(doc(db, "weekly_enrollments", weekKey));
+            if (!snapshot.exists()) {
+                return {};
+            }
+            const data = snapshot.data();
+            return data?.enrollments || {};
         }
 
-        function setCurrentWeekEnrollments(currentWeek) {
-            const all = loadEnrollments();
+        async function setCurrentWeekEnrollments(currentWeek) {
             const weekKey = getWeekKey();
-            all[weekKey] = currentWeek;
-            saveEnrollments(all);
+            if (!isFirebaseConfigured()) {
+                cachedEnrollments = currentWeek;
+                return;
+            }
+            const db = getFirebaseDb();
+            await setDoc(doc(db, "weekly_enrollments", weekKey), { enrollments: currentWeek });
+            cachedEnrollments = currentWeek;
         }
 
-        function runMonthlyPaymentReset() {
+        async function runMonthlyPaymentReset() {
             const today = new Date();
             const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-            const meta = loadMeta();
+            const meta = cachedMeta && Object.keys(cachedMeta).length ? cachedMeta : await loadMeta();
             let updated = false;
 
             if (today.getDate() === 1 && meta.lastPaymentResetMonth !== monthKey) {
-                const students = loadStudents();
+                const students = cachedStudents.length ? cachedStudents : await loadStudents();
                 const resetStudents = students.map(student => ({
                     ...student,
                     paymentStatus: 'pendiente',
                     paymentDue: today.toISOString().split('T')[0]
                 }));
-                saveStudents(resetStudents);
+                await saveStudents(resetStudents);
                 meta.lastPaymentResetMonth = monthKey;
                 updated = true;
             }
 
             if (today.getDate() > 5 && meta.lastPaymentOverdueMonth !== monthKey) {
-                const students = loadStudents();
+                const students = cachedStudents.length ? cachedStudents : await loadStudents();
                 const overdueStudents = students.map(student =>
                     student.paymentStatus === 'pendiente'
                         ? { ...student, paymentStatus: 'vencido' }
                         : student
                 );
-                saveStudents(overdueStudents);
+                await saveStudents(overdueStudents);
                 meta.lastPaymentOverdueMonth = monthKey;
                 updated = true;
             }
 
             if (updated) {
-                saveMeta(meta);
+                await saveMeta(meta);
             }
         }
 
-        function hydrateScheduleEnrollments() {
-            const weekEnrollments = getCurrentWeekEnrollments();
+        async function hydrateScheduleEnrollments() {
+            const weekEnrollments = cachedEnrollments && Object.keys(cachedEnrollments).length
+                ? cachedEnrollments
+                : await getCurrentWeekEnrollments();
             scheduleData.forEach(cls => {
                 cls.enrolled = weekEnrollments[cls.id] || [];
             });
+            cachedEnrollments = weekEnrollments;
         }
 
         function getScheduleMapForDiscipline(discipline) {
@@ -1179,7 +1276,7 @@
             openModal('public-schedule-modal');
         }
 
-        function submitTrial(e) {
+        async function submitTrial(e) {
             e.preventDefault();
             const btn = document.getElementById('btn-submit-trial');
             const originalText = btn.innerText;
@@ -1198,75 +1295,58 @@
                 paymentStatus: 'pendiente'
             };
 
-            fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify(data)
-            })
-                .then(response => response.text())
-                .then(text => {
-                    try {
-                        const res = JSON.parse(text);
-                        if (res.result === "success") {
-                            const requests = loadTrialRequests();
-                            requests.unshift({
-                                id: `t${Date.now()}`,
-                                nombre: data.nombre,
-                                disciplina: data.disciplina,
-                                telefono: data.telefono,
-                                email: data.email,
-                                fecha: new Date().toISOString(),
-                                plan: data.plan,
-                                paymentStatus: data.paymentStatus,
-                                classDay: data.classDay,
-                                classTime: data.classTime
-                            });
-                            saveTrialRequests(requests);
-                            showToast("Solicitud enviada correctamente");
-                            closeModal('trial-modal');
-                            document.querySelector('#trial-modal form').reset();
-                            if (isAdmin) {
-                                cargarSolicitudesTrialAdmin();
-                            }
-                        } else {
-                            showToast("Error: " + (res.message || "Desconocido"));
-                        }
-                    } catch (e) {
-                        const requests = loadTrialRequests();
-                        requests.unshift({
-                            id: `t${Date.now()}`,
-                            nombre: data.nombre,
-                            disciplina: data.disciplina,
-                            telefono: data.telefono,
-                            email: data.email,
-                            fecha: new Date().toISOString(),
-                            plan: data.plan,
-                            paymentStatus: data.paymentStatus,
-                            classDay: data.classDay,
-                            classTime: data.classTime
-                        });
-                        saveTrialRequests(requests);
-                        showToast("Datos guardados (Respuesta no JSON)");
-                        if (isAdmin) {
-                            cargarSolicitudesTrialAdmin();
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast("Error de conexión");
-                })
-                .finally(() => {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
                 });
+                const text = await response.text();
+
+                try {
+                    const res = JSON.parse(text);
+                    if (res.result !== "success") {
+                        showToast("Error: " + (res.message || "Desconocido"));
+                        return;
+                    }
+                } catch (error) {
+                    showToast("Datos guardados (Respuesta no JSON)");
+                }
+
+                const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
+                requests.unshift({
+                    id: `t${Date.now()}`,
+                    nombre: data.nombre,
+                    disciplina: data.disciplina,
+                    telefono: data.telefono,
+                    email: data.email,
+                    fecha: new Date().toISOString(),
+                    plan: data.plan,
+                    paymentStatus: data.paymentStatus,
+                    classDay: data.classDay,
+                    classTime: data.classTime
+                });
+                await saveTrialRequests(requests);
+                showToast("Solicitud enviada correctamente");
+                closeModal('trial-modal');
+                document.querySelector('#trial-modal form').reset();
+                if (isAdmin) {
+                    await cargarSolicitudesTrialAdmin();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast("Error de conexión");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
 
-        function getStudentsByName(name) {
-            const students = loadStudents();
+        async function getStudentsByName(name) {
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
             return students.filter(student => student.name.toLowerCase() === name.toLowerCase());
         }
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
             const name = document.getElementById('user-name').value.trim();
             const code = document.getElementById('access-code').value.trim();
@@ -1286,7 +1366,7 @@
                 return;
             }
 
-            const matchingStudents = getStudentsByName(name);
+            const matchingStudents = await getStudentsByName(name);
             if (matchingStudents.length === 0) {
                 showToast('Alumno no encontrado. Verifica el nombre.');
                 return;
@@ -1314,7 +1394,7 @@
             mostrarMenuUsuario();
             updatePublicButtons();
             closeModal('login-modal');
-            abrirCalendario();
+            await abrirCalendario();
         }
 
         function isOpenMatEligible(user) {
@@ -1391,13 +1471,13 @@
             showToast('Sesión cerrada');
         }
 
-        function abrirCalendario() {
+        async function abrirCalendario() {
             document.getElementById('calendar-title').innerText =
                 currentUser.role === 'admin'
                     ? 'Calendario General'
                     : `Agendar clases: ${currentUser.discipline}`;
 
-            renderCalendar();
+            await renderCalendar();
             openModal('calendar-modal');
         }
 
@@ -1419,7 +1499,7 @@
             openModal('profile-modal');
         }
 
-        function actualizarClaveAcceso(event) {
+        async function actualizarClaveAcceso(event) {
             event.preventDefault();
             if (!currentUser || currentUser.role !== 'member') {
                 showToast('Solo disponible para alumnos.');
@@ -1445,7 +1525,7 @@
                 return;
             }
 
-            const students = loadStudents();
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
             const hasConflict = students.some(student =>
                 student.id !== currentUser.id &&
                 (student.accessCode || '').toLowerCase() === normalizedCode
@@ -1460,20 +1540,21 @@
                 student.id === currentUser.id ? { ...student, accessCode: newCode } : student
             );
 
-            saveStudents(updatedStudents);
+            await saveStudents(updatedStudents);
             currentUser.accessCode = newCode;
             document.getElementById('profile-access-code').innerText = newCode;
             document.getElementById('form-update-access-code').reset();
             showToast('Clave actualizada correctamente.');
         }
 
-        function abrirMisClases() {
-            renderMisClases();
+        async function abrirMisClases() {
+            await renderMisClases();
             openModal('my-classes-modal');
         }
 
-        function abrirClasesAgendadasAdmin() {
-            cargarSolicitudesTrialAdmin();
+        async function abrirClasesAgendadasAdmin() {
+            await cargarClasesAgendadasAdmin();
+            await cargarSolicitudesTrialAdmin();
             openModal('admin-trial-modal');
         }
 
@@ -1483,10 +1564,10 @@
             openModal('admin-weekly-plan-modal');
         }
 
-        function abrirAlumnosInscritosAdmin() {
+        async function abrirAlumnosInscritosAdmin() {
             adminStudentsFilter = 'Jiu Jitsu';
             updateAdminStudentsFilterButtons();
-            cargarAlumnosAdmin();
+            await cargarAlumnosAdmin();
             openModal('admin-students-modal');
         }
 
@@ -1514,8 +1595,8 @@
             `;
         }
 
-        function renderCalendar() {
-            hydrateScheduleEnrollments();
+        async function renderCalendar() {
+            await hydrateScheduleEnrollments();
             const grid = document.getElementById('calendar-grid');
             const paymentBanner = document.getElementById('payment-banner');
             const limitInfo = document.getElementById('limit-info');
@@ -1677,7 +1758,7 @@
             });
         }
 
-        function toggleReservation(classId) {
+        async function toggleReservation(classId) {
             const cls = scheduleData.find(c => c.id === classId);
             const planLimit = getWeeklyLimitForStudent(currentUser);
             const currentCount = getUserWeeklyCount(currentUser);
@@ -1708,19 +1789,21 @@
                 showToast(`¡Reservado para ${cls.class}!`);
             }
 
-            const currentWeek = getCurrentWeekEnrollments();
+            const currentWeek = cachedEnrollments && Object.keys(cachedEnrollments).length
+                ? cachedEnrollments
+                : await getCurrentWeekEnrollments();
             currentWeek[cls.id] = cls.enrolled;
-            setCurrentWeekEnrollments(currentWeek);
-            renderCalendar();
+            await setCurrentWeekEnrollments(currentWeek);
+            await renderCalendar();
         }
 
-        function cargarResumenAdmin() {
+        async function cargarResumenAdmin() {
             const totalAlumnos = document.getElementById('total-alumnos');
             if (!totalAlumnos) {
                 return;
             }
 
-            const students = loadStudents();
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
             totalAlumnos.innerText = students.length;
             document.getElementById('total-pendiente').innerText = students.filter(s => s.paymentStatus === 'pendiente').length;
             document.getElementById('total-vencido').innerText = students.filter(s => s.paymentStatus === 'vencido').length;
@@ -1740,9 +1823,9 @@
             });
         }
 
-        function cargarSolicitudesTrialAdmin() {
+        async function cargarSolicitudesTrialAdmin() {
             const container = document.getElementById('admin-trial-list');
-            const requests = loadTrialRequests();
+            const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
             container.innerHTML = '';
 
             if (requests.length === 0) {
@@ -1786,8 +1869,8 @@
             });
         }
 
-        function agregarAlumnoDesdeTrial(requestId) {
-            const requests = loadTrialRequests();
+        async function agregarAlumnoDesdeTrial(requestId) {
+            const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
             const request = requests.find(req => req.id === requestId);
             if (!request) {
                 showToast('Solicitud no encontrada.');
@@ -1801,7 +1884,7 @@
                 return;
             }
 
-            const students = loadStudents();
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
             const discipline = request.disciplina || 'Sin disciplina';
             const accessCode = generateAccessCode({ discipline });
             const newStudent = {
@@ -1820,27 +1903,27 @@
             };
 
             students.push(newStudent);
-            saveStudents(students);
-            saveTrialRequests(requests.filter(req => req.id !== requestId));
+            await saveStudents(students);
+            await saveTrialRequests(requests.filter(req => req.id !== requestId));
             showToast(`Alumno ${newStudent.name} agregado.`);
             notifyStudentAccess(newStudent);
-            cargarSolicitudesTrialAdmin();
-            cargarAlumnosAdmin();
+            await cargarSolicitudesTrialAdmin();
+            await cargarAlumnosAdmin();
         }
 
-        function eliminarSolicitudTrial(requestId) {
+        async function eliminarSolicitudTrial(requestId) {
             if (!confirm('¿Eliminar esta solicitud de clase de prueba?')) {
                 return;
             }
-            const requests = loadTrialRequests();
+            const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
             const updated = requests.filter(req => req.id !== requestId);
-            saveTrialRequests(updated);
+            await saveTrialRequests(updated);
             showToast('Solicitud eliminada.');
-            cargarSolicitudesTrialAdmin();
+            await cargarSolicitudesTrialAdmin();
         }
 
-        function cargarPlanClasesAdmin(discipline) {
-            hydrateScheduleEnrollments();
+        async function cargarPlanClasesAdmin(discipline) {
+            await hydrateScheduleEnrollments();
             const container = document.getElementById('admin-weekly-plan');
             const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
             container.innerHTML = '';
@@ -1882,12 +1965,12 @@
             container.appendChild(grid);
         }
 
-        function setAdminWeekDiscipline(discipline) {
+        async function setAdminWeekDiscipline(discipline) {
             const title = document.querySelector('#admin-weekly-plan-modal .modal-header h3');
             if (title) {
                 title.innerText = `Plan Semanal: ${discipline}`;
             }
-            cargarPlanClasesAdmin(discipline);
+            await cargarPlanClasesAdmin(discipline);
         }
 
         function getPlanOptionsForDiscipline(discipline) {
@@ -1898,8 +1981,8 @@
             return plans.map(planKey => `<option value="${planKey}">${PLAN_CONFIG[planKey]?.label || planKey}</option>`).join('');
         }
 
-        function cargarClasesPorDisciplinaAdmin() {
-            hydrateScheduleEnrollments();
+        async function cargarClasesPorDisciplinaAdmin() {
+            await hydrateScheduleEnrollments();
             const container = document.getElementById('admin-disciplines-classes');
             const counts = scheduleData.reduce((acc, cls) => {
                 acc[cls.class] = (acc[cls.class] || 0) + cls.enrolled.length;
@@ -1915,8 +1998,8 @@
             });
         }
 
-        function cargarAlumnosNoPagadosAdmin() {
-            const students = loadStudents();
+        async function cargarAlumnosNoPagadosAdmin() {
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
             const container = document.getElementById('admin-unpaid-list');
             const total = document.getElementById('admin-unpaid-total');
             if (!container || !total) {
@@ -2042,9 +2125,11 @@
             return section;
         }
 
-        function cargarAlumnosAdmin() {
-            const students = loadStudents();
-            const enrollments = getCurrentWeekEnrollments();
+        async function cargarAlumnosAdmin() {
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
+            const enrollments = cachedEnrollments && Object.keys(cachedEnrollments).length
+                ? cachedEnrollments
+                : await getCurrentWeekEnrollments();
             const container = document.getElementById('admin-alumnos-container');
             container.innerHTML = '';
 
@@ -2120,13 +2205,13 @@
             });
         }
 
-        function setAdminStudentsFilter(filterKey) {
+        async function setAdminStudentsFilter(filterKey) {
             adminStudentsFilter = filterKey;
             updateAdminStudentsFilterButtons();
-            cargarAlumnosAdmin();
+            await cargarAlumnosAdmin();
         }
 
-        function actualizarLimiteSemanal(studentId) {
+        async function actualizarLimiteSemanal(studentId) {
             const input = document.getElementById(`limit-${studentId}`);
             if (!input) {
                 showToast('Campo de límite no encontrado.');
@@ -2139,7 +2224,7 @@
                 return;
             }
 
-            const students = loadStudents();
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
             const updated = students.map(student => {
                 if (student.id !== studentId) return student;
                 const nextData = { ...student };
@@ -2150,7 +2235,7 @@
                 }
                 return nextData;
             });
-            saveStudents(updated);
+            await saveStudents(updated);
             if (currentUser && currentUser.id === studentId) {
                 if (parsedValue === null) {
                     delete currentUser.weeklyLimitOverride;
@@ -2158,12 +2243,12 @@
                     currentUser.weeklyLimitOverride = parsedValue;
                 }
             }
-            cargarAlumnosAdmin();
+            await cargarAlumnosAdmin();
             showToast('Límite semanal actualizado.');
         }
 
-        function eliminarAlumno(studentId) {
-            const students = loadStudents();
+        async function eliminarAlumno(studentId) {
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
             const student = students.find(item => item.id === studentId);
             if (!student) {
                 showToast('Alumno no encontrado.');
@@ -2173,25 +2258,25 @@
                 return;
             }
             const updated = students.filter(item => item.id !== studentId);
-            saveStudents(updated);
-            cargarResumenAdmin();
-            cargarAlumnosAdmin();
-            cargarAlumnosNoPagadosAdmin();
+            await saveStudents(updated);
+            await cargarResumenAdmin();
+            await cargarAlumnosAdmin();
+            await cargarAlumnosNoPagadosAdmin();
             showToast('Alumno eliminado.');
         }
 
-        function actualizarPago(studentId, status) {
-            const students = loadStudents();
+        async function actualizarPago(studentId, status) {
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
             const updated = students.map(student =>
                 student.id === studentId ? { ...student, paymentStatus: status } : student
             );
-            saveStudents(updated);
+            await saveStudents(updated);
             if (currentUser && currentUser.id === studentId) {
                 currentUser.paymentStatus = status;
             }
-            cargarResumenAdmin();
-            cargarAlumnosAdmin();
-            cargarAlumnosNoPagadosAdmin();
+            await cargarResumenAdmin();
+            await cargarAlumnosAdmin();
+            await cargarAlumnosNoPagadosAdmin();
             showToast('Estado de pago actualizado');
         }
 
@@ -2208,9 +2293,9 @@
         document.getElementById('t-disc').addEventListener('change', updateTrialScheduleOptions);
         document.getElementById('t-day').addEventListener('change', updateTrialScheduleTimes);
 
-        document.getElementById('form-new-alumno').addEventListener('submit', (e) => {
+        document.getElementById('form-new-alumno').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const students = loadStudents();
+            const students = cachedStudents.length ? cachedStudents : await loadStudents();
             const discipline = document.getElementById('new-disciplina').value;
             const name = document.getElementById('new-nombre').value.trim();
             const accessCode = generateAccessCode({ discipline });
@@ -2230,20 +2315,57 @@
             };
 
             students.push(newStudent);
-            saveStudents(students);
+            await saveStudents(students);
             document.getElementById('new-alumno-result').innerText = `Alumno ${newStudent.name} registrado. Clave de acceso: ${accessCode} (puedes usar el nombre como clave temporal).`;
             notifyStudentAccess(newStudent);
             document.getElementById('form-new-alumno').reset();
-            cargarResumenAdmin();
-            cargarAlumnosAdmin();
-            cargarAlumnosNoPagadosAdmin();
+            await cargarResumenAdmin();
+            await cargarAlumnosAdmin();
+            await cargarAlumnosNoPagadosAdmin();
         });
 
-        runMonthlyPaymentReset();
-        hydrateScheduleEnrollments();
-        renderCards();
-        updatePublicButtons();
-        updateNewStudentScheduleOptions();
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.showToast = showToast;
+        window.openTrialModal = openTrialModal;
+        window.openLoginModal = openLoginModal;
+        window.openPublicSchedule = openPublicSchedule;
+        window.submitTrial = submitTrial;
+        window.handleLogin = handleLogin;
+        window.abrirMisClases = abrirMisClases;
+        window.abrirCalendario = abrirCalendario;
+        window.abrirEstadoPago = abrirEstadoPago;
+        window.abrirPerfil = abrirPerfil;
+        window.abrirClasesAgendadasAdmin = abrirClasesAgendadasAdmin;
+        window.abrirClasesSemanaAdmin = abrirClasesSemanaAdmin;
+        window.abrirAlumnosInscritosAdmin = abrirAlumnosInscritosAdmin;
+        window.abrirAgregarAlumnoAdmin = abrirAgregarAlumnoAdmin;
+        window.cerrarSesion = cerrarSesion;
+        window.actualizarClaveAcceso = actualizarClaveAcceso;
+        window.setAdminWeekDiscipline = setAdminWeekDiscipline;
+        window.setAdminStudentsFilter = setAdminStudentsFilter;
+        window.toggleReservation = toggleReservation;
+        window.actualizarPago = actualizarPago;
+        window.eliminarAlumno = eliminarAlumno;
+        window.actualizarLimiteSemanal = actualizarLimiteSemanal;
+        window.agregarAlumnoDesdeTrial = agregarAlumnoDesdeTrial;
+        window.eliminarSolicitudTrial = eliminarSolicitudTrial;
+
+        const initApp = async () => {
+            if (!isFirebaseConfigured()) {
+                showToast('Configura Firebase para cargar datos reales.');
+            }
+            cachedStudents = await loadStudents();
+            cachedTrialRequests = await loadTrialRequests();
+            cachedMeta = await loadMeta();
+            await runMonthlyPaymentReset();
+            await hydrateScheduleEnrollments();
+            renderCards();
+            updatePublicButtons();
+            updateNewStudentScheduleOptions();
+        };
+
+        initApp();
     </script>
 </body>
 </html>
