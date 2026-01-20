@@ -320,6 +320,16 @@
             cursor: pointer;
             margin-right: 4px;
         }
+        .admin-students-filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .admin-students-filters button.is-active {
+            background: var(--primary);
+            color: var(--white);
+        }
         .admin-inline {
             display: flex;
             align-items: center;
@@ -651,6 +661,11 @@
                 <button class="close-modal" onclick="closeModal('admin-students-modal')">&times;</button>
             </div>
             <div class="modal-body admin-panel">
+                <div class="admin-students-filters">
+                    <button class="btn-login" data-filter="Jiu Jitsu" onclick="setAdminStudentsFilter('Jiu Jitsu')">Jiu-Jitsu</button>
+                    <button class="btn-login" data-filter="Judo" onclick="setAdminStudentsFilter('Judo')">Judo</button>
+                    <button class="btn-login" data-filter="Kick Boxing" onclick="setAdminStudentsFilter('Kick Boxing')">Kickboxing</button>
+                </div>
                 <div style="overflow-x:auto;">
                     <div id="admin-alumnos-container"></div>
                 </div>
@@ -806,6 +821,21 @@
             "Kick Boxing": ["KB_STD"]
         };
 
+        const ADMIN_STUDENT_FILTERS = {
+            "Jiu Jitsu": {
+                label: "Jiu-Jitsu",
+                disciplines: ["Jiu Jitsu", "Jiu Jitsu Kid"]
+            },
+            "Judo": {
+                label: "Judo",
+                disciplines: ["Judo"]
+            },
+            "Kick Boxing": {
+                label: "Kickboxing",
+                disciplines: ["Kick Boxing"]
+            }
+        };
+
         const DEFAULT_STUDENTS = [
             { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "JJ_FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
             { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "KB_STD", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
@@ -821,6 +851,7 @@
 
         let currentUser = null;
         let isAdmin = false;
+        let adminStudentsFilter = 'Jiu Jitsu';
 
         function openModal(id) { document.getElementById(id).classList.add('open'); }
         function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -1251,6 +1282,8 @@
         }
 
         function abrirAlumnosInscritosAdmin() {
+            adminStudentsFilter = 'Jiu Jitsu';
+            updateAdminStudentsFilterButtons();
             cargarAlumnosAdmin();
             openModal('admin-students-modal');
         }
@@ -1794,9 +1827,22 @@
 
             const disciplineLabels = {
                 'Jiu Jitsu': 'Jiu-Jitsu',
+                'Jiu Jitsu Kid': 'Jiu-Jitsu Kid',
                 'Kick Boxing': 'Kickboxing',
                 'Judo': 'Judo'
             };
+            const filterConfig = ADMIN_STUDENT_FILTERS[adminStudentsFilter];
+
+            if (filterConfig) {
+                filterConfig.disciplines.forEach(discipline => {
+                    const list = students.filter(student => student.discipline === discipline);
+                    const label = disciplineLabels[discipline] || discipline;
+                    const title = `Alumnos de ${label}`;
+                    container.appendChild(buildAdminStudentsSection(title, list, enrollments));
+                });
+                return;
+            }
+
             const disciplineOrder = ['Jiu Jitsu', 'Kick Boxing', 'Judo'];
             const grouped = new Map();
             disciplineOrder.forEach(discipline => grouped.set(discipline, []));
@@ -1820,6 +1866,19 @@
                 const title = `Alumnos de ${label}`;
                 container.appendChild(buildAdminStudentsSection(title, list, enrollments));
             });
+        }
+
+        function updateAdminStudentsFilterButtons() {
+            const buttons = document.querySelectorAll('.admin-students-filters button');
+            buttons.forEach(button => {
+                button.classList.toggle('is-active', button.dataset.filter === adminStudentsFilter);
+            });
+        }
+
+        function setAdminStudentsFilter(filterKey) {
+            adminStudentsFilter = filterKey;
+            updateAdminStudentsFilterButtons();
+            cargarAlumnosAdmin();
         }
 
         function actualizarLimiteSemanal(studentId) {
