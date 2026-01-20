@@ -837,16 +837,17 @@
         };
 
         const DEFAULT_STUDENTS = [
-            { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "JJ_FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
-            { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "KB_STD", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
-            { id: "s3", name: "Valentina Ríos", discipline: "Judo", plan: "JD_STD", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28", accessCode: "JD-2051" },
-            { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
+            { id: "s1", uid: "uid-s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "JJ_FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
+            { id: "s2", uid: "uid-s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "KB_STD", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
+            { id: "s3", uid: "uid-s3", name: "Valentina Ríos", discipline: "Judo", plan: "JD_STD", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28", accessCode: "JD-2051" },
+            { id: "s4", uid: "uid-s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
         ];
 
         const STORAGE_KEYS = {
             students: "edc_students",
             enrollments: "edc_enrollments",
-            trialRequests: "edc_trial_requests"
+            trialRequests: "edc_trial_requests",
+            meta: "edc_meta"
         };
 
         let currentUser = null;
@@ -871,7 +872,12 @@
                 localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(DEFAULT_STUDENTS));
                 return [...DEFAULT_STUDENTS];
             }
-            return JSON.parse(stored);
+            const students = JSON.parse(stored);
+            const { normalized, updated } = ensureStudentUids(students);
+            if (updated) {
+                saveStudents(normalized);
+            }
+            return normalized;
         }
 
         function saveStudents(students) {
@@ -887,11 +893,39 @@
             localStorage.setItem(STORAGE_KEYS.trialRequests, JSON.stringify(requests));
         }
 
+        function loadMeta() {
+            const stored = localStorage.getItem(STORAGE_KEYS.meta);
+            return stored ? JSON.parse(stored) : {};
+        }
+
+        function saveMeta(meta) {
+            localStorage.setItem(STORAGE_KEYS.meta, JSON.stringify(meta));
+        }
+
         function generateAccessCode(student) {
             if (student?.accessCode) return student.accessCode;
             const prefix = (student?.discipline || 'EDC').split(' ')[0].substring(0, 2).toUpperCase();
             const random = Math.floor(1000 + Math.random() * 9000);
             return `${prefix}-${random}`;
+        }
+
+        function generateStudentUid() {
+            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                return crypto.randomUUID();
+            }
+            return `uid-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        }
+
+        function ensureStudentUids(students) {
+            let updated = false;
+            const normalized = students.map(student => {
+                if (student.uid) {
+                    return student;
+                }
+                updated = true;
+                return { ...student, uid: generateStudentUid() };
+            });
+            return { normalized, updated };
         }
 
         function getWeekKey(date = new Date()) {
@@ -923,6 +957,41 @@
             const weekKey = getWeekKey();
             all[weekKey] = currentWeek;
             saveEnrollments(all);
+        }
+
+        function runMonthlyPaymentReset() {
+            const today = new Date();
+            const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+            const meta = loadMeta();
+            let updated = false;
+
+            if (today.getDate() === 1 && meta.lastPaymentResetMonth !== monthKey) {
+                const students = loadStudents();
+                const resetStudents = students.map(student => ({
+                    ...student,
+                    paymentStatus: 'pendiente',
+                    paymentDue: today.toISOString().split('T')[0]
+                }));
+                saveStudents(resetStudents);
+                meta.lastPaymentResetMonth = monthKey;
+                updated = true;
+            }
+
+            if (today.getDate() > 5 && meta.lastPaymentOverdueMonth !== monthKey) {
+                const students = loadStudents();
+                const overdueStudents = students.map(student =>
+                    student.paymentStatus === 'pendiente'
+                        ? { ...student, paymentStatus: 'vencido' }
+                        : student
+                );
+                saveStudents(overdueStudents);
+                meta.lastPaymentOverdueMonth = monthKey;
+                updated = true;
+            }
+
+            if (updated) {
+                saveMeta(meta);
+            }
         }
 
         function hydrateScheduleEnrollments() {
@@ -1593,6 +1662,7 @@
             const accessCode = generateAccessCode({ discipline });
             const newStudent = {
                 id: `s${Date.now()}`,
+                uid: generateStudentUid(),
                 name: request.nombre,
                 discipline,
                 plan: planValue,
@@ -1984,6 +2054,7 @@
             const accessCode = generateAccessCode({ discipline });
             const newStudent = {
                 id: `s${Date.now()}`,
+                uid: generateStudentUid(),
                 name,
                 discipline,
                 plan: document.getElementById('new-plan').value,
@@ -2003,6 +2074,7 @@
             cargarAlumnosNoPagadosAdmin();
         });
 
+        runMonthlyPaymentReset();
         hydrateScheduleEnrollments();
         renderCards();
         updatePublicButtons();

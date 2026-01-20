@@ -13,7 +13,7 @@ const FIREBASE_CONFIG = {
 let firebaseDb = null;
 
 // Nodos esperados en Firebase Realtime Database:
-// - students/{id} (id, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride)
+// - students/{id} (id, uid, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride)
 // - weekly_enrollments/{weekKey} (enrollments)
 // - trial_requests/{id} (id, nombre, disciplina, telefono, email, fecha)
 // - meta/system (id, lastWeeklyReset, lastPaymentResetMonth, lastPaymentOverdueMonth)
@@ -87,10 +87,10 @@ const DISCIPLINE_PLANS = {
 };
 
 const DEFAULT_STUDENTS = [
-  { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "JJ_FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
-  { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "KB_STD", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
-  { id: "s3", name: "Valentina Ríos", discipline: "Judo", plan: "JD_STD", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28", accessCode: "JD-2051" },
-  { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
+  { id: "s1", uid: "uid-s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "JJ_FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
+  { id: "s2", uid: "uid-s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "KB_STD", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
+  { id: "s3", uid: "uid-s3", name: "Valentina Ríos", discipline: "Judo", plan: "JD_STD", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28", accessCode: "JD-2051" },
+  { id: "s4", uid: "uid-s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
 ];
 
 const META_ID = "system";
@@ -141,7 +141,12 @@ async function loadStudents() {
     await saveStudents(DEFAULT_STUDENTS);
     return [...DEFAULT_STUDENTS];
   }
-  return Object.values(data);
+  const students = Object.values(data);
+  const { normalized, updated } = ensureStudentUids(students);
+  if (updated) {
+    await saveStudents(normalized);
+  }
+  return normalized;
 }
 
 async function saveStudents(students) {
@@ -189,6 +194,25 @@ function generateAccessCode(student) {
   const prefix = (student?.discipline || "EDC").split(" ")[0].substring(0, 2).toUpperCase();
   const random = Math.floor(1000 + Math.random() * 9000);
   return `${prefix}-${random}`;
+}
+
+function generateStudentUid() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `uid-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+}
+
+function ensureStudentUids(students) {
+  let updated = false;
+  const normalized = students.map(student => {
+    if (student.uid) {
+      return student;
+    }
+    updated = true;
+    return { ...student, uid: generateStudentUid() };
+  });
+  return { normalized, updated };
 }
 
 function getWeekKey(date = new Date()) {
@@ -929,6 +953,7 @@ async function agregarAlumnoDesdeTrial(requestId) {
   const accessCode = generateAccessCode({ discipline });
   const newStudent = {
     id: `s${Date.now()}`,
+    uid: generateStudentUid(),
     name: request.nombre,
     discipline,
     plan: planValue,
@@ -1275,6 +1300,7 @@ async function registrarNuevoAlumno(e) {
   const accessCode = generateAccessCode({ discipline });
   const newStudent = {
     id: `s${Date.now()}`,
+    uid: generateStudentUid(),
     name,
     discipline,
     plan: document.getElementById("new-plan").value,
@@ -1346,7 +1372,7 @@ async function runMonthlyPaymentReset(meta) {
     await saveMeta({ ...meta, lastPaymentResetMonth: monthKey });
   }
 
-  if (today.getDate() >= 5 && meta.lastPaymentOverdueMonth !== monthKey) {
+  if (today.getDate() > 5 && meta.lastPaymentOverdueMonth !== monthKey) {
     const students = await loadStudents();
     const overdueStudents = students.map(student =>
       student.paymentStatus === "pendiente"
