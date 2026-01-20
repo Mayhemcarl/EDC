@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const FIREBASE_CONFIG = {
  apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
@@ -85,6 +85,18 @@ const DISCIPLINE_PLANS = {
   "Judo": ["JD_STD"],
   "Kick Boxing": ["KB_STD"]
 };
+
+const DAY_INDEX = {
+  "Domingo": 0,
+  "Lunes": 1,
+  "Martes": 2,
+  "Miércoles": 3,
+  "Jueves": 4,
+  "Viernes": 5,
+  "Sabado": 6
+};
+
+const MIN_RESERVATION_NOTICE_MINUTES = 60;
 
 const DEFAULT_STUDENTS = [
   { id: "s1", uid: "uid-s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "JJ_FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
@@ -253,6 +265,29 @@ function getWeekKey(date = new Date()) {
   return `${temp.getUTCFullYear()}-W${weekNum}`;
 }
 
+function getClassStartDate(cls, now = new Date()) {
+  const [hour, minute] = cls.time.split(":").map(Number);
+  const classDate = new Date(now);
+  classDate.setHours(hour, minute, 0, 0);
+
+  const todayIndex = now.getDay();
+  const targetIndex = DAY_INDEX[cls.day];
+  let daysUntil = (targetIndex - todayIndex + 7) % 7;
+
+  if (daysUntil === 0 && classDate < now) {
+    return classDate;
+  }
+
+  classDate.setDate(classDate.getDate() + daysUntil);
+  return classDate;
+}
+
+function isReservationClosed(cls, now = new Date()) {
+  const classDate = getClassStartDate(cls, now);
+  const diffMs = classDate - now;
+  return diffMs <= MIN_RESERVATION_NOTICE_MINUTES * 60 * 1000;
+}
+
 async function getCurrentWeekEnrollments() {
   const weekKey = getWeekKey();
   if (!isFirebaseConfigured()) {
@@ -279,6 +314,10 @@ async function setCurrentWeekEnrollments(currentWeek) {
 
 async function hydrateScheduleEnrollments() {
   const weekEnrollments = await getCurrentWeekEnrollments();
+  applyEnrollmentsToSchedule(weekEnrollments);
+}
+
+function applyEnrollmentsToSchedule(weekEnrollments) {
   cachedEnrollments = weekEnrollments;
   scheduleData.forEach(cls => {
     cls.enrolled = weekEnrollments[cls.id] || [];
@@ -711,6 +750,7 @@ async function renderCalendar() {
     relevantClasses.forEach(c => {
       const isEnrolled = currentUser && c.enrolled.some(u => u.name === currentUser.name);
       const isFull = c.enrolled.length >= c.capacity;
+      const reservationClosed = !isEnrolled && !isAdmin && isReservationClosed(c);
       let btnClass = "cal-btn reserve";
       let btnText = "RESERVAR";
       let btnState = "";
@@ -725,6 +765,10 @@ async function renderCalendar() {
       } else if (isEnrolled) {
         btnText = "CANCELAR";
         btnClass = "cal-btn cancel";
+      } else if (reservationClosed) {
+        btnText = "CERRADO";
+        btnClass = "cal-btn disabled";
+        canReserve = false;
       } else if (isFull) {
         btnText = "LLENO";
         btnClass = "cal-btn disabled";
@@ -841,6 +885,10 @@ async function toggleReservation(classId) {
     cls.enrolled = cls.enrolled.filter(u => u.name !== currentUser.name);
     showToast(`Cancelaste tu asistencia a ${cls.class}`);
   } else {
+    if (isReservationClosed(cls)) {
+      showToast("Reservas cerradas: debes agendar con al menos 1 hora de anticipación.");
+      return;
+    }
     if (cls.countsTowardLimit !== false && planLimit > 0 && currentCount >= planLimit) {
       showToast(`¡Límite alcanzado! Tu plan permite ${planLimit} clases por semana.`);
       return;
@@ -1430,6 +1478,82 @@ async function runMaintenance() {
   await runMonthlyPaymentReset(meta);
 }
 
+function refreshCurrentUser(students) {
+  if (!currentUser || currentUser.role !== "member") {
+    return;
+  }
+  const updated = students.find(student => student.id === currentUser.id);
+  if (updated) {
+    currentUser = { ...currentUser, ...updated };
+  }
+}
+
+function isModalOpen(id) {
+  const modal = document.getElementById(id);
+  return modal ? modal.classList.contains("open") : false;
+}
+
+function listenToRealtimeUpdates() {
+  if (!isFirebaseConfigured()) {
+    return;
+  }
+  const db = getFirebaseDb();
+  const weekKey = getWeekKey();
+
+  onValue(ref(db, "students"), async snapshot => {
+    const data = snapshot.exists() ? snapshot.val() : {};
+    const students = Object.values(data || {});
+    const { normalized, updated } = ensureStudentUids(students);
+    if (updated) {
+      await saveStudents(normalized);
+      return;
+    }
+    cachedStudents = normalized;
+    refreshCurrentUser(normalized);
+    if (isAdmin) {
+      await cargarResumenAdmin();
+      await cargarAlumnosAdmin();
+      await cargarAlumnosNoPagadosAdmin();
+    }
+    if (isModalOpen("profile-modal")) {
+      abrirPerfil();
+    }
+    if (isModalOpen("payment-modal")) {
+      cargarEstadoPagoUsuario();
+    }
+    if (isModalOpen("calendar-modal")) {
+      await renderCalendar();
+    }
+    if (isModalOpen("my-classes-modal")) {
+      await renderMisClases();
+    }
+  });
+
+  onValue(ref(db, "trial_requests"), async snapshot => {
+    const data = snapshot.exists() ? snapshot.val() : {};
+    cachedTrialRequests = Object.values(data || {});
+    if (isAdmin && isModalOpen("admin-trial-modal")) {
+      await cargarSolicitudesTrialAdmin();
+    }
+  });
+
+  onValue(ref(db, `weekly_enrollments/${weekKey}`), async snapshot => {
+    const enrollments = snapshot.exists() ? snapshot.val().enrollments || {} : {};
+    applyEnrollmentsToSchedule(enrollments);
+    if (isModalOpen("calendar-modal")) {
+      await renderCalendar();
+    }
+    if (isModalOpen("my-classes-modal")) {
+      await renderMisClases();
+    }
+    if (isAdmin) {
+      await cargarClasesAgendadasAdmin();
+      await cargarClasesPorDisciplinaAdmin();
+      await cargarAlumnosAdmin();
+    }
+  });
+}
+
 async function init() {
   renderCards();
   updatePublicButtons();
@@ -1441,6 +1565,7 @@ async function init() {
     cachedStudents = await loadStudents();
     cachedTrialRequests = await loadTrialRequests();
     await hydrateScheduleEnrollments();
+    listenToRealtimeUpdates();
   } catch (error) {
     console.error("Error cargando datos iniciales:", error);
     cachedStudents = cachedStudents.length ? cachedStudents : [...DEFAULT_STUDENTS];
