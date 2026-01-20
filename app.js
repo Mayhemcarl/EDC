@@ -1,5 +1,14 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  onSnapshot,
+  setDoc,
+  writeBatch
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const FIREBASE_CONFIG = {
  apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
@@ -12,7 +21,7 @@ const FIREBASE_CONFIG = {
 
 let firebaseDb = null;
 
-// Nodos esperados en Firebase Realtime Database:
+// Colecciones esperadas en Firestore:
 // - students/{id} (id, uid, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride)
 // - weekly_enrollments/{weekKey} (enrollments)
 // - trial_requests/{id} (id, nombre, disciplina, telefono, email, fecha)
@@ -125,7 +134,7 @@ function getFirebaseDb() {
   }
   if (!firebaseDb) {
     const app = initializeApp(FIREBASE_CONFIG);
-    firebaseDb = getDatabase(app);
+    firebaseDb = getFirestore(app);
   }
   return firebaseDb;
 }
@@ -147,13 +156,12 @@ async function loadStudents() {
     return [...DEFAULT_STUDENTS];
   }
   const db = getFirebaseDb();
-  const snapshot = await get(ref(db, "students"));
-  const data = snapshot.exists() ? snapshot.val() : null;
-  if (!data || Object.keys(data).length === 0) {
+  const snapshot = await getDocs(collection(db, "students"));
+  if (snapshot.empty) {
     await saveStudents(DEFAULT_STUDENTS);
     return [...DEFAULT_STUDENTS];
   }
-  const students = Object.values(data);
+  const students = snapshot.docs.map(docSnap => docSnap.data());
   const { normalized, updated } = ensureStudentUids(students);
   if (updated) {
     await saveStudents(normalized);
@@ -161,17 +169,32 @@ async function loadStudents() {
   return normalized;
 }
 
+async function syncCollectionById(collectionName, items) {
+  const db = getFirebaseDb();
+  const colRef = collection(db, collectionName);
+  const snapshot = await getDocs(colRef);
+  const batch = writeBatch(db);
+  const incomingIds = new Set(items.map(item => item.id));
+
+  snapshot.forEach(docSnap => {
+    if (!incomingIds.has(docSnap.id)) {
+      batch.delete(docSnap.ref);
+    }
+  });
+
+  items.forEach(item => {
+    batch.set(doc(db, collectionName, item.id), item);
+  });
+
+  await batch.commit();
+}
+
 async function saveStudents(students) {
   if (!isFirebaseConfigured()) {
     cachedStudents = [...students];
     return;
   }
-  const db = getFirebaseDb();
-  const normalizedStudents = students.reduce((acc, student) => {
-    acc[student.id] = student;
-    return acc;
-  }, {});
-  await set(ref(db, "students"), normalizedStudents);
+  await syncCollectionById("students", students);
   cachedStudents = [...students];
 }
 
@@ -180,11 +203,11 @@ async function loadTrialRequests() {
     return [];
   }
   const db = getFirebaseDb();
-  const snapshot = await get(ref(db, "trial_requests"));
-  if (!snapshot.exists()) {
+  const snapshot = await getDocs(collection(db, "trial_requests"));
+  if (snapshot.empty) {
     return [];
   }
-  return Object.values(snapshot.val());
+  return snapshot.docs.map(docSnap => docSnap.data());
 }
 
 async function saveTrialRequests(requests) {
@@ -192,12 +215,7 @@ async function saveTrialRequests(requests) {
     cachedTrialRequests = [...requests];
     return;
   }
-  const db = getFirebaseDb();
-  const normalizedRequests = requests.reduce((acc, request) => {
-    acc[request.id] = request;
-    return acc;
-  }, {});
-  await set(ref(db, "trial_requests"), normalizedRequests);
+  await syncCollectionById("trial_requests", requests);
   cachedTrialRequests = [...requests];
 }
 
@@ -294,11 +312,12 @@ async function getCurrentWeekEnrollments() {
     return {};
   }
   const db = getFirebaseDb();
-  const snapshot = await get(ref(db, `weekly_enrollments/${weekKey}`));
+  const snapshot = await getDoc(doc(db, "weekly_enrollments", weekKey));
   if (!snapshot.exists()) {
     return {};
   }
-  return snapshot.val().enrollments || {};
+  const data = snapshot.data();
+  return data?.enrollments || {};
 }
 
 async function setCurrentWeekEnrollments(currentWeek) {
@@ -308,7 +327,7 @@ async function setCurrentWeekEnrollments(currentWeek) {
     return;
   }
   const db = getFirebaseDb();
-  await set(ref(db, `weekly_enrollments/${weekKey}`), { enrollments: currentWeek });
+  await setDoc(doc(db, "weekly_enrollments", weekKey), { enrollments: currentWeek });
   cachedEnrollments = currentWeek;
 }
 
@@ -1410,11 +1429,11 @@ async function loadMeta() {
     return { id: META_ID };
   }
   const db = getFirebaseDb();
-  const snapshot = await get(ref(db, `meta/${META_ID}`));
+  const snapshot = await getDoc(doc(db, "meta", META_ID));
   if (!snapshot.exists()) {
     return { id: META_ID };
   }
-  return snapshot.val();
+  return snapshot.data();
 }
 
 async function saveMeta(meta) {
@@ -1422,7 +1441,7 @@ async function saveMeta(meta) {
     return;
   }
   const db = getFirebaseDb();
-  await set(ref(db, `meta/${META_ID}`), meta);
+  await setDoc(doc(db, "meta", META_ID), meta);
 }
 
 async function runWeeklyReset(meta) {
@@ -1500,9 +1519,8 @@ function listenToRealtimeUpdates() {
   const db = getFirebaseDb();
   const weekKey = getWeekKey();
 
-  onValue(ref(db, "students"), async snapshot => {
-    const data = snapshot.exists() ? snapshot.val() : {};
-    const students = Object.values(data || {});
+  onSnapshot(collection(db, "students"), async snapshot => {
+    const students = snapshot.docs.map(docSnap => docSnap.data());
     const { normalized, updated } = ensureStudentUids(students);
     if (updated) {
       await saveStudents(normalized);
@@ -1529,16 +1547,16 @@ function listenToRealtimeUpdates() {
     }
   });
 
-  onValue(ref(db, "trial_requests"), async snapshot => {
-    const data = snapshot.exists() ? snapshot.val() : {};
-    cachedTrialRequests = Object.values(data || {});
+  onSnapshot(collection(db, "trial_requests"), async snapshot => {
+    cachedTrialRequests = snapshot.docs.map(docSnap => docSnap.data());
     if (isAdmin && isModalOpen("admin-trial-modal")) {
       await cargarSolicitudesTrialAdmin();
     }
   });
 
-  onValue(ref(db, `weekly_enrollments/${weekKey}`), async snapshot => {
-    const enrollments = snapshot.exists() ? snapshot.val().enrollments || {} : {};
+  onSnapshot(doc(db, "weekly_enrollments", weekKey), async snapshot => {
+    const data = snapshot.exists() ? snapshot.data() : null;
+    const enrollments = data?.enrollments || {};
     applyEnrollmentsToSchedule(enrollments);
     if (isModalOpen("calendar-modal")) {
       await renderCalendar();
