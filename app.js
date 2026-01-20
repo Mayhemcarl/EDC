@@ -95,6 +95,21 @@ const DISCIPLINE_PLANS = {
   "Kick Boxing": ["KB_STD"]
 };
 
+const ADMIN_STUDENT_FILTERS = {
+  "Jiu Jitsu": {
+    label: "Jiu-Jitsu",
+    disciplines: ["Jiu Jitsu", "Jiu Jitsu Kid"]
+  },
+  "Judo": {
+    label: "Judo",
+    disciplines: ["Judo"]
+  },
+  "Kick Boxing": {
+    label: "Kickboxing",
+    disciplines: ["Kick Boxing"]
+  }
+};
+
 const DAY_INDEX = {
   "Domingo": 0,
   "Lunes": 1,
@@ -120,6 +135,7 @@ const META_ID = "system";
 
 let currentUser = null;
 let isAdmin = false;
+let adminStudentsFilter = "Jiu Jitsu";
 let cachedStudents = [];
 let cachedTrialRequests = [];
 let cachedEnrollments = {};
@@ -1108,15 +1124,51 @@ async function cargarClasesAgendadasAdmin() {
     dayCard.innerHTML = `<h4>${day}</h4>`;
 
     dayClasses.forEach(cls => {
-      const attendees = cls.enrolled.map(u => u.name).join(", ") || "Sin alumnos";
       const attendeeCount = cls.enrolled.length;
       const item = document.createElement("div");
       item.className = "admin-class-item";
-      item.innerHTML = `
+
+      const header = document.createElement("div");
+      header.innerHTML = `
         <strong>${cls.time} - ${cls.class}</strong>
-        <span class="muted">${cls.instructor}</span><br>
-        <span>Alumnos (${attendeeCount}): ${attendees}</span>
+        <span class="muted">${cls.instructor}</span>
       `;
+      item.appendChild(header);
+
+      const attendeeLabel = document.createElement("div");
+      attendeeLabel.className = "muted";
+      attendeeLabel.innerText = `Alumnos (${attendeeCount}):`;
+      item.appendChild(attendeeLabel);
+
+      const attendeeList = document.createElement("div");
+      attendeeList.className = "admin-attendee-list";
+
+      if (cls.enrolled.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "muted";
+        empty.innerText = "Sin alumnos";
+        attendeeList.appendChild(empty);
+      } else {
+        cls.enrolled.forEach(student => {
+          const row = document.createElement("div");
+          row.className = "admin-attendee-row";
+
+          const name = document.createElement("span");
+          name.innerText = student.name;
+          row.appendChild(name);
+
+          const removeBtn = document.createElement("button");
+          removeBtn.className = "btn-overdue";
+          removeBtn.type = "button";
+          removeBtn.innerText = "Eliminar";
+          removeBtn.addEventListener("click", () => eliminarClaseAgendada(cls.id, student.name));
+          row.appendChild(removeBtn);
+
+          attendeeList.appendChild(row);
+        });
+      }
+
+      item.appendChild(attendeeList);
       dayCard.appendChild(item);
     });
 
@@ -1124,6 +1176,28 @@ async function cargarClasesAgendadasAdmin() {
   });
 
   container.appendChild(grid);
+}
+
+async function eliminarClaseAgendada(classId, studentName) {
+  const cls = scheduleData.find(item => item.id === classId);
+  if (!cls) {
+    showToast("Clase no encontrada.");
+    return;
+  }
+
+  const originalCount = cls.enrolled.length;
+  cls.enrolled = cls.enrolled.filter(student => student.name !== studentName);
+
+  if (cls.enrolled.length === originalCount) {
+    showToast("El alumno ya no está en esta clase.");
+    return;
+  }
+
+  const currentWeek = cachedEnrollments || await getCurrentWeekEnrollments();
+  currentWeek[cls.id] = cls.enrolled;
+  await setCurrentWeekEnrollments(currentWeek);
+  await cargarClasesAgendadasAdmin();
+  showToast("Clase agendada eliminada.");
 }
 
 async function agregarAlumnoDesdeTrial(requestId) {
@@ -1228,6 +1302,11 @@ function setAdminWeekDiscipline(discipline) {
     title.innerText = `Plan Semanal: ${discipline}`;
   }
   cargarPlanClasesAdmin(discipline);
+}
+
+function setAdminStudentsFilter(discipline) {
+  adminStudentsFilter = discipline;
+  cargarAlumnosAdmin();
 }
 
 function getPlanOptionsForDiscipline(discipline) {
@@ -1388,7 +1467,13 @@ async function cargarAlumnosAdmin() {
   const container = document.getElementById("admin-alumnos-container");
   container.innerHTML = "";
 
-  if (students.length === 0) {
+  const filterInfo = ADMIN_STUDENT_FILTERS[adminStudentsFilter];
+  const allowedDisciplines = filterInfo?.disciplines || null;
+  const filteredStudents = allowedDisciplines
+    ? students.filter(student => allowedDisciplines.includes(student.discipline))
+    : students;
+
+  if (filteredStudents.length === 0) {
     container.innerHTML = '<p class="muted">Sin alumnos registrados.</p>';
     return;
   }
@@ -1399,23 +1484,29 @@ async function cargarAlumnosAdmin() {
     "Judo": "Judo"
   };
   const disciplineOrder = ["Jiu Jitsu", "Kick Boxing", "Judo"];
+  const visibleDisciplines = allowedDisciplines
+    ? disciplineOrder.filter(discipline => allowedDisciplines.includes(discipline))
+    : disciplineOrder;
   const grouped = new Map();
-  disciplineOrder.forEach(discipline => grouped.set(discipline, []));
+  visibleDisciplines.forEach(discipline => grouped.set(discipline, []));
 
-  students.forEach(student => {
+  filteredStudents.forEach(student => {
     const rawDiscipline = student.discipline?.trim() || "Otros";
     const key = grouped.has(rawDiscipline) ? rawDiscipline : rawDiscipline;
     if (!grouped.has(key)) {
+      if (allowedDisciplines && !allowedDisciplines.includes(rawDiscipline)) {
+        return;
+      }
       grouped.set(key, []);
     }
     grouped.get(key).push(student);
   });
 
   const extraDisciplines = Array.from(grouped.keys())
-    .filter(key => !disciplineOrder.includes(key))
+    .filter(key => !visibleDisciplines.includes(key))
     .sort((a, b) => a.localeCompare(b));
 
-  [...disciplineOrder, ...extraDisciplines].forEach(discipline => {
+  [...visibleDisciplines, ...extraDisciplines].forEach(discipline => {
     const list = grouped.get(discipline) || [];
     const label = disciplineLabels[discipline] || discipline;
     const title = `Alumnos de ${label}`;
@@ -1750,11 +1841,13 @@ window.abrirAgregarAlumnoAdmin = abrirAgregarAlumnoAdmin;
 window.cerrarSesion = cerrarSesion;
 window.actualizarClaveAcceso = actualizarClaveAcceso;
 window.setAdminWeekDiscipline = setAdminWeekDiscipline;
+window.setAdminStudentsFilter = setAdminStudentsFilter;
 window.toggleReservation = toggleReservation;
 window.actualizarPago = actualizarPago;
 window.eliminarAlumno = eliminarAlumno;
 window.actualizarLimiteSemanal = actualizarLimiteSemanal;
 window.agregarAlumnoDesdeTrial = agregarAlumnoDesdeTrial;
 window.eliminarSolicitudTrial = eliminarSolicitudTrial;
+window.eliminarClaseAgendada = eliminarClaseAgendada;
 
 init();
