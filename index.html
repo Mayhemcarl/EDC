@@ -212,23 +212,6 @@
             box-shadow: var(--shadow);
             margin-top: 20px;
         }
-        .public-schedules-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-        }
-        .public-schedule-card {
-            background: var(--white);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 1.5rem;
-        }
-        .public-schedule-card h3 {
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            color: var(--secondary);
-        }
         .timetable {
             width: 100%;
             border-collapse: collapse;
@@ -445,7 +428,6 @@
             .hero { min-height: 50vh; }
             .btn-hero { width: 100%; justify-content: center; }
             .admin-table th, .admin-table td { font-size: 0.8rem; }
-            .public-schedule-card { padding: 1.1rem; }
         }
     </style>
 </head>
@@ -480,14 +462,6 @@
                 <p>Haz clic para ver el horario de la disciplina</p>
             </div>
             <div class="classes-grid" id="classes-grid"></div>
-        </section>
-
-        <section>
-            <div class="section-title">
-                <h2>Horarios por Disciplina</h2>
-                <p>Visualiza el calendario semanal completo por disciplina.</p>
-            </div>
-            <div class="public-schedules-grid" id="public-schedules-grid"></div>
         </section>
 
         <section class="experience-section">
@@ -776,19 +750,7 @@
         <button onclick="cerrarSesion()"><i class="fas fa-arrow-right-from-bracket"></i> Salir</button>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script>
-        const FIREBASE_CONFIG = {
-            apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
-            authDomain: "elemental-dojo-curico.firebaseapp.com",
-            projectId: "elemental-dojo-curico",
-            storageBucket: "elemental-dojo-curico.firebasestorage.app",
-            messagingSenderId: "39532293146",
-            appId: "1:39532293146:web:0c44ace849aeed5f5335a3"
-        };
-
-        let firestoreDb = null;
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzHj0JGyuEWjI7B9KiLVQRTzNe4avfTEYK6GShiLkngSYUmpXXgCVe0fHKNhulFIqTyw/exec';
 
         const ADMIN_USER = 'EDC2019';
@@ -881,31 +843,16 @@
             { id: "s4", uid: "uid-s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
         ];
 
+        const STORAGE_KEYS = {
+            students: "edc_students",
+            enrollments: "edc_enrollments",
+            trialRequests: "edc_trial_requests",
+            meta: "edc_meta"
+        };
+
         let currentUser = null;
         let isAdmin = false;
         let adminStudentsFilter = 'Jiu Jitsu';
-        let cachedStudents = [];
-        let cachedTrialRequests = [];
-        let cachedEnrollments = {};
-        let cachedMeta = {};
-        const TRIAL_REQUESTS_STORAGE_KEY = 'edc-trial-requests';
-
-        function isFirebaseConfigured() {
-            return Object.values(FIREBASE_CONFIG).every(value =>
-                typeof value === 'string' && value.trim() !== '' && !value.includes('your-')
-            );
-        }
-
-        function getFirestoreDb() {
-            if (!isFirebaseConfigured()) {
-                return null;
-            }
-            if (!firestoreDb) {
-                firebase.initializeApp(FIREBASE_CONFIG);
-                firestoreDb = firebase.firestore();
-            }
-            return firestoreDb;
-        }
 
         function openModal(id) { document.getElementById(id).classList.add('open'); }
         function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -919,89 +866,40 @@
         function openTrialModal() { openModal('trial-modal'); }
         function openLoginModal() { openModal('login-modal'); }
 
-        async function loadStudents() {
-            if (!isFirebaseConfigured()) {
-                cachedStudents = [...DEFAULT_STUDENTS];
-                return cachedStudents;
-            }
-            const db = getFirestoreDb();
-            const snapshot = await db.collection('students').get();
-            if (snapshot.empty) {
-                await saveStudents(DEFAULT_STUDENTS);
+        function loadStudents() {
+            const stored = localStorage.getItem(STORAGE_KEYS.students);
+            if (!stored) {
+                localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(DEFAULT_STUDENTS));
                 return [...DEFAULT_STUDENTS];
             }
-            const students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const students = JSON.parse(stored);
             const { normalized, updated } = ensureStudentUids(students);
             if (updated) {
-                await saveStudents(normalized);
-                return normalized;
+                saveStudents(normalized);
             }
-            cachedStudents = normalized;
             return normalized;
         }
 
-        async function saveStudents(students) {
-            if (!isFirebaseConfigured()) {
-                cachedStudents = [...students];
-                return;
-            }
-            const db = getFirestoreDb();
-            const snapshot = await db.collection('students').get();
-            const existingIds = new Set(snapshot.docs.map(doc => doc.id));
-            const incomingIds = new Set(students.map(student => student.id));
-            const batch = db.batch();
-            students.forEach(student => {
-                const docRef = db.collection('students').doc(student.id);
-                batch.set(docRef, student);
-            });
-            existingIds.forEach(id => {
-                if (!incomingIds.has(id)) {
-                    const docRef = db.collection('students').doc(id);
-                    batch.delete(docRef);
-                }
-            });
-            await batch.commit();
-            cachedStudents = [...students];
+        function saveStudents(students) {
+            localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(students));
         }
 
-        async function loadTrialRequests() {
-            const stored = localStorage.getItem(TRIAL_REQUESTS_STORAGE_KEY);
-            if (stored) {
-                try {
-                    cachedTrialRequests = JSON.parse(stored) || [];
-                } catch (error) {
-                    console.warn('No se pudo leer solicitudes almacenadas.', error);
-                    cachedTrialRequests = [];
-                }
-            } else {
-                cachedTrialRequests = [];
-            }
-            return cachedTrialRequests;
+        function loadTrialRequests() {
+            const stored = localStorage.getItem(STORAGE_KEYS.trialRequests);
+            return stored ? JSON.parse(stored) : [];
         }
 
-        async function saveTrialRequests(requests) {
-            cachedTrialRequests = [...requests];
-            localStorage.setItem(TRIAL_REQUESTS_STORAGE_KEY, JSON.stringify(cachedTrialRequests));
+        function saveTrialRequests(requests) {
+            localStorage.setItem(STORAGE_KEYS.trialRequests, JSON.stringify(requests));
         }
 
-        async function loadMeta() {
-            if (!isFirebaseConfigured()) {
-                return cachedMeta;
-            }
-            const db = getFirestoreDb();
-            const docSnap = await db.collection('meta').doc('system').get();
-            cachedMeta = docSnap.exists ? docSnap.data() : {};
-            return cachedMeta;
+        function loadMeta() {
+            const stored = localStorage.getItem(STORAGE_KEYS.meta);
+            return stored ? JSON.parse(stored) : {};
         }
 
-        async function saveMeta(meta) {
-            if (!isFirebaseConfigured()) {
-                cachedMeta = { ...meta };
-                return;
-            }
-            const db = getFirestoreDb();
-            await db.collection('meta').doc('system').set(meta);
-            cachedMeta = { ...meta };
+        function saveMeta(meta) {
+            localStorage.setItem(STORAGE_KEYS.meta, JSON.stringify(meta));
         }
 
         function generateAccessCode(student) {
@@ -1068,74 +966,65 @@
             return `${temp.getUTCFullYear()}-W${weekNum}`;
         }
 
-        async function loadEnrollmentsForWeek(weekKey) {
-            if (!isFirebaseConfigured()) {
-                return cachedEnrollments[weekKey] || {};
-            }
-            const db = getFirestoreDb();
-            const docSnap = await db.collection('weeklyEnrollments').doc(weekKey).get();
-            const enrollments = docSnap.exists ? (docSnap.data().enrollments || {}) : {};
-            cachedEnrollments[weekKey] = enrollments;
-            return enrollments;
+        function loadEnrollments() {
+            const stored = localStorage.getItem(STORAGE_KEYS.enrollments);
+            return stored ? JSON.parse(stored) : {};
         }
 
-        async function saveEnrollmentsForWeek(weekKey, enrollments) {
-            if (!isFirebaseConfigured()) {
-                cachedEnrollments[weekKey] = enrollments;
-                return;
-            }
-            const db = getFirestoreDb();
-            await db.collection('weeklyEnrollments').doc(weekKey).set({ enrollments });
-            cachedEnrollments[weekKey] = enrollments;
+        function saveEnrollments(data) {
+            localStorage.setItem(STORAGE_KEYS.enrollments, JSON.stringify(data));
         }
 
-        async function getCurrentWeekEnrollments() {
+        function getCurrentWeekEnrollments() {
+            const all = loadEnrollments();
             const weekKey = getWeekKey();
-            return loadEnrollmentsForWeek(weekKey);
+            return all[weekKey] || {};
         }
 
-        async function setCurrentWeekEnrollments(currentWeek) {
+        function setCurrentWeekEnrollments(currentWeek) {
+            const all = loadEnrollments();
             const weekKey = getWeekKey();
-            await saveEnrollmentsForWeek(weekKey, currentWeek);
+            all[weekKey] = currentWeek;
+            saveEnrollments(all);
         }
 
-        async function runMonthlyPaymentReset() {
+        function runMonthlyPaymentReset() {
             const today = new Date();
             const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-            const meta = await loadMeta();
+            const meta = loadMeta();
             let updated = false;
 
             if (today.getDate() === 1 && meta.lastPaymentResetMonth !== monthKey) {
-                const students = await loadStudents();
+                const students = loadStudents();
                 const resetStudents = students.map(student => ({
                     ...student,
                     paymentStatus: 'pendiente',
                     paymentDue: today.toISOString().split('T')[0]
                 }));
-                await saveStudents(resetStudents);
+                saveStudents(resetStudents);
                 meta.lastPaymentResetMonth = monthKey;
                 updated = true;
             }
 
             if (today.getDate() > 5 && meta.lastPaymentOverdueMonth !== monthKey) {
-                const students = await loadStudents();
+                const students = loadStudents();
                 const overdueStudents = students.map(student =>
                     student.paymentStatus === 'pendiente'
                         ? { ...student, paymentStatus: 'vencido' }
                         : student
                 );
-                await saveStudents(overdueStudents);
+                saveStudents(overdueStudents);
                 meta.lastPaymentOverdueMonth = monthKey;
                 updated = true;
             }
 
             if (updated) {
-                await saveMeta(meta);
+                saveMeta(meta);
             }
         }
 
-        async function hydrateScheduleEnrollments() {
-            const weekEnrollments = await getCurrentWeekEnrollments();
+        function hydrateScheduleEnrollments() {
+            const weekEnrollments = getCurrentWeekEnrollments();
             scheduleData.forEach(cls => {
                 cls.enrolled = weekEnrollments[cls.id] || [];
             });
@@ -1159,24 +1048,25 @@
             });
         }
 
-        function getFilteredScheduleByDiscipline(disciplineName) {
-            return scheduleData.filter(s => {
+        function openPublicSchedule(disciplineName) {
+            const tbody = document.getElementById('public-schedule-table');
+            document.getElementById('public-schedule-title').innerText = `Horarios: ${disciplineName}`;
+            tbody.innerHTML = '';
+
+            const filteredSchedule = scheduleData.filter(s => {
                 if (disciplineName === 'Jiu Jitsu') {
                     return s.class === disciplineName || s.openMatOnly;
                 }
                 return s.class === disciplineName;
             });
-        }
-
-        function buildScheduleTableHTML(disciplineName) {
-            const filteredSchedule = getFilteredScheduleByDiscipline(disciplineName);
             const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
+
             const times = [...new Set(filteredSchedule.map(s => s.time))].sort();
 
             let headerRow = '<tr><th>Hora</th>';
             days.forEach(d => headerRow += `<th>${d}</th>`);
             headerRow += '</tr>';
-            let tableHtml = headerRow;
+            tbody.innerHTML = headerRow;
 
             times.forEach(time => {
                 let row = `<tr><td><span class="tt-time">${time}</span></td>`;
@@ -1197,40 +1087,13 @@
                     }
                 });
                 row += '</tr>';
-                tableHtml += row;
+                tbody.innerHTML += row;
             });
-            return tableHtml;
-        }
-
-        function renderPublicSchedules() {
-            const container = document.getElementById('public-schedules-grid');
-            if (!container) return;
-            container.innerHTML = '';
-            classesData.forEach(cls => {
-                const tableHtml = buildScheduleTableHTML(cls.name);
-                const card = document.createElement('div');
-                card.className = 'public-schedule-card';
-                card.innerHTML = `
-                    <h3>${cls.name}</h3>
-                    <div class="timetable-container">
-                        <table class="timetable">
-                            <tbody>${tableHtml}</tbody>
-                        </table>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        function openPublicSchedule(disciplineName) {
-            const tbody = document.getElementById('public-schedule-table');
-            document.getElementById('public-schedule-title').innerText = `Horarios: ${disciplineName}`;
-            tbody.innerHTML = buildScheduleTableHTML(disciplineName);
 
             openModal('public-schedule-modal');
         }
 
-        async function submitTrial(e) {
+        function submitTrial(e) {
             e.preventDefault();
             const btn = document.getElementById('btn-submit-trial');
             const originalText = btn.innerText;
@@ -1245,16 +1108,36 @@
                 email: document.getElementById('t-email').value,
             };
 
-            try {
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(data)
-                });
-                const text = await response.text();
-                try {
-                    const res = JSON.parse(text);
-                    if (res.result === "success") {
-                        const requests = await loadTrialRequests();
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(data)
+            })
+                .then(response => response.text())
+                .then(text => {
+                    try {
+                        const res = JSON.parse(text);
+                        if (res.result === "success") {
+                            const requests = loadTrialRequests();
+                            requests.unshift({
+                                id: `t${Date.now()}`,
+                                nombre: data.nombre,
+                                disciplina: data.disciplina,
+                                telefono: data.telefono,
+                                email: data.email,
+                                fecha: new Date().toISOString()
+                            });
+                            saveTrialRequests(requests);
+                            showToast("Solicitud enviada correctamente");
+                            closeModal('trial-modal');
+                            document.querySelector('#trial-modal form').reset();
+                            if (isAdmin) {
+                                cargarSolicitudesTrialAdmin();
+                            }
+                        } else {
+                            showToast("Error: " + (res.message || "Desconocido"));
+                        }
+                    } catch (e) {
+                        const requests = loadTrialRequests();
                         requests.unshift({
                             id: `t${Date.now()}`,
                             nombre: data.nombre,
@@ -1263,47 +1146,29 @@
                             email: data.email,
                             fecha: new Date().toISOString()
                         });
-                        await saveTrialRequests(requests);
-                        showToast("Solicitud enviada correctamente");
-                        closeModal('trial-modal');
-                        document.querySelector('#trial-modal form').reset();
+                        saveTrialRequests(requests);
+                        showToast("Datos guardados (Respuesta no JSON)");
                         if (isAdmin) {
-                            await cargarSolicitudesTrialAdmin();
+                            cargarSolicitudesTrialAdmin();
                         }
-                    } else {
-                        showToast("Error: " + (res.message || "Desconocido"));
                     }
-                } catch (err) {
-                    const requests = await loadTrialRequests();
-                    requests.unshift({
-                        id: `t${Date.now()}`,
-                        nombre: data.nombre,
-                        disciplina: data.disciplina,
-                        telefono: data.telefono,
-                        email: data.email,
-                        fecha: new Date().toISOString()
-                    });
-                    await saveTrialRequests(requests);
-                    showToast("Datos guardados (Respuesta no JSON)");
-                    if (isAdmin) {
-                        await cargarSolicitudesTrialAdmin();
-                    }
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showToast("Error de conexión");
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast("Error de conexión");
+                })
+                .finally(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                });
         }
 
-        async function getStudentsByName(name) {
-            const students = await loadStudents();
+        function getStudentsByName(name) {
+            const students = loadStudents();
             return students.filter(student => student.name.toLowerCase() === name.toLowerCase());
         }
 
-        async function handleLogin(e) {
+        function handleLogin(e) {
             e.preventDefault();
             const name = document.getElementById('user-name').value.trim();
             const code = document.getElementById('access-code').value.trim();
@@ -1323,7 +1188,7 @@
                 return;
             }
 
-            const matchingStudents = await getStudentsByName(name);
+            const matchingStudents = getStudentsByName(name);
             if (matchingStudents.length === 0) {
                 showToast('Alumno no encontrado. Verifica el nombre.');
                 return;
@@ -1428,13 +1293,13 @@
             showToast('Sesión cerrada');
         }
 
-        async function abrirCalendario() {
+        function abrirCalendario() {
             document.getElementById('calendar-title').innerText =
                 currentUser.role === 'admin'
                     ? 'Calendario General'
                     : `Agendar clases: ${currentUser.discipline}`;
 
-            await renderCalendar();
+            renderCalendar();
             openModal('calendar-modal');
         }
 
@@ -1456,7 +1321,7 @@
             openModal('profile-modal');
         }
 
-        async function actualizarClaveAcceso(event) {
+        function actualizarClaveAcceso(event) {
             event.preventDefault();
             if (!currentUser || currentUser.role !== 'member') {
                 showToast('Solo disponible para alumnos.');
@@ -1482,7 +1347,7 @@
                 return;
             }
 
-            const students = await loadStudents();
+            const students = loadStudents();
             const hasConflict = students.some(student =>
                 student.id !== currentUser.id &&
                 (student.accessCode || '').toLowerCase() === normalizedCode
@@ -1497,33 +1362,33 @@
                 student.id === currentUser.id ? { ...student, accessCode: newCode } : student
             );
 
-            await saveStudents(updatedStudents);
+            saveStudents(updatedStudents);
             currentUser.accessCode = newCode;
             document.getElementById('profile-access-code').innerText = newCode;
             document.getElementById('form-update-access-code').reset();
             showToast('Clave actualizada correctamente.');
         }
 
-        async function abrirMisClases() {
-            await renderMisClases();
+        function abrirMisClases() {
+            renderMisClases();
             openModal('my-classes-modal');
         }
 
-        async function abrirClasesAgendadasAdmin() {
-            await cargarSolicitudesTrialAdmin();
+        function abrirClasesAgendadasAdmin() {
+            cargarSolicitudesTrialAdmin();
             openModal('admin-trial-modal');
         }
 
-        async function abrirClasesSemanaAdmin() {
+        function abrirClasesSemanaAdmin() {
             const defaultDiscipline = 'Jiu Jitsu';
-            await setAdminWeekDiscipline(defaultDiscipline);
+            setAdminWeekDiscipline(defaultDiscipline);
             openModal('admin-weekly-plan-modal');
         }
 
-        async function abrirAlumnosInscritosAdmin() {
+        function abrirAlumnosInscritosAdmin() {
             adminStudentsFilter = 'Jiu Jitsu';
             updateAdminStudentsFilterButtons();
-            await cargarAlumnosAdmin();
+            cargarAlumnosAdmin();
             openModal('admin-students-modal');
         }
 
@@ -1551,8 +1416,8 @@
             `;
         }
 
-        async function renderCalendar() {
-            await hydrateScheduleEnrollments();
+        function renderCalendar() {
+            hydrateScheduleEnrollments();
             const grid = document.getElementById('calendar-grid');
             const paymentBanner = document.getElementById('payment-banner');
             const limitInfo = document.getElementById('limit-info');
@@ -1657,11 +1522,11 @@
             });
         }
 
-        async function renderMisClases() {
+        function renderMisClases() {
             const list = document.getElementById('my-classes-list');
             const paymentBanner = document.getElementById('my-classes-payment');
             list.innerHTML = '';
-            await hydrateScheduleEnrollments();
+            hydrateScheduleEnrollments();
 
             if (!currentUser || currentUser.role !== 'member') {
                 list.innerHTML = '<p class="muted">Solo disponible para alumnos.</p>';
@@ -1714,7 +1579,7 @@
             });
         }
 
-        async function toggleReservation(classId) {
+        function toggleReservation(classId) {
             const cls = scheduleData.find(c => c.id === classId);
             const planLimit = getWeeklyLimitForStudent(currentUser);
             const currentCount = getUserWeeklyCount(currentUser);
@@ -1745,19 +1610,19 @@
                 showToast(`¡Reservado para ${cls.class}!`);
             }
 
-            const currentWeek = await getCurrentWeekEnrollments();
+            const currentWeek = getCurrentWeekEnrollments();
             currentWeek[cls.id] = cls.enrolled;
-            await setCurrentWeekEnrollments(currentWeek);
-            await renderCalendar();
+            setCurrentWeekEnrollments(currentWeek);
+            renderCalendar();
         }
 
-        async function cargarResumenAdmin() {
+        function cargarResumenAdmin() {
             const totalAlumnos = document.getElementById('total-alumnos');
             if (!totalAlumnos) {
                 return;
             }
 
-            const students = await loadStudents();
+            const students = loadStudents();
             totalAlumnos.innerText = students.length;
             document.getElementById('total-pendiente').innerText = students.filter(s => s.paymentStatus === 'pendiente').length;
             document.getElementById('total-vencido').innerText = students.filter(s => s.paymentStatus === 'vencido').length;
@@ -1777,9 +1642,9 @@
             });
         }
 
-        async function cargarSolicitudesTrialAdmin() {
+        function cargarSolicitudesTrialAdmin() {
             const container = document.getElementById('admin-trial-list');
-            const requests = await loadTrialRequests();
+            const requests = loadTrialRequests();
             container.innerHTML = '';
 
             if (requests.length === 0) {
@@ -1812,8 +1677,8 @@
             });
         }
 
-        async function agregarAlumnoDesdeTrial(requestId) {
-            const requests = await loadTrialRequests();
+        function agregarAlumnoDesdeTrial(requestId) {
+            const requests = loadTrialRequests();
             const request = requests.find(req => req.id === requestId);
             if (!request) {
                 showToast('Solicitud no encontrada.');
@@ -1827,7 +1692,7 @@
                 return;
             }
 
-            const students = await loadStudents();
+            const students = loadStudents();
             const discipline = request.disciplina || 'Sin disciplina';
             const accessCode = generateAccessCode({ discipline });
             const newStudent = {
@@ -1844,16 +1709,16 @@
             };
 
             students.push(newStudent);
-            await saveStudents(students);
-            await saveTrialRequests(requests.filter(req => req.id !== requestId));
+            saveStudents(students);
+            saveTrialRequests(requests.filter(req => req.id !== requestId));
             showToast(`Alumno ${newStudent.name} agregado.`);
             notifyStudentAccess(newStudent);
-            await cargarSolicitudesTrialAdmin();
-            await cargarAlumnosAdmin();
+            cargarSolicitudesTrialAdmin();
+            cargarAlumnosAdmin();
         }
 
-        async function cargarPlanClasesAdmin(discipline) {
-            await hydrateScheduleEnrollments();
+        function cargarPlanClasesAdmin(discipline) {
+            hydrateScheduleEnrollments();
             const container = document.getElementById('admin-weekly-plan');
             const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
             container.innerHTML = '';
@@ -1895,12 +1760,12 @@
             container.appendChild(grid);
         }
 
-        async function setAdminWeekDiscipline(discipline) {
+        function setAdminWeekDiscipline(discipline) {
             const title = document.querySelector('#admin-weekly-plan-modal .modal-header h3');
             if (title) {
                 title.innerText = `Plan Semanal: ${discipline}`;
             }
-            await cargarPlanClasesAdmin(discipline);
+            cargarPlanClasesAdmin(discipline);
         }
 
         function getPlanOptionsForDiscipline(discipline) {
@@ -1911,8 +1776,8 @@
             return plans.map(planKey => `<option value="${planKey}">${PLAN_CONFIG[planKey]?.label || planKey}</option>`).join('');
         }
 
-        async function cargarClasesPorDisciplinaAdmin() {
-            await hydrateScheduleEnrollments();
+        function cargarClasesPorDisciplinaAdmin() {
+            hydrateScheduleEnrollments();
             const container = document.getElementById('admin-disciplines-classes');
             const counts = scheduleData.reduce((acc, cls) => {
                 acc[cls.class] = (acc[cls.class] || 0) + cls.enrolled.length;
@@ -1928,8 +1793,8 @@
             });
         }
 
-        async function cargarAlumnosNoPagadosAdmin() {
-            const students = await loadStudents();
+        function cargarAlumnosNoPagadosAdmin() {
+            const students = loadStudents();
             const container = document.getElementById('admin-unpaid-list');
             const total = document.getElementById('admin-unpaid-total');
             if (!container || !total) {
@@ -2055,9 +1920,9 @@
             return section;
         }
 
-        async function cargarAlumnosAdmin() {
-            const students = await loadStudents();
-            const enrollments = await getCurrentWeekEnrollments();
+        function cargarAlumnosAdmin() {
+            const students = loadStudents();
+            const enrollments = getCurrentWeekEnrollments();
             const container = document.getElementById('admin-alumnos-container');
             container.innerHTML = '';
 
@@ -2133,13 +1998,13 @@
             });
         }
 
-        async function setAdminStudentsFilter(filterKey) {
+        function setAdminStudentsFilter(filterKey) {
             adminStudentsFilter = filterKey;
             updateAdminStudentsFilterButtons();
-            await cargarAlumnosAdmin();
+            cargarAlumnosAdmin();
         }
 
-        async function actualizarLimiteSemanal(studentId) {
+        function actualizarLimiteSemanal(studentId) {
             const input = document.getElementById(`limit-${studentId}`);
             if (!input) {
                 showToast('Campo de límite no encontrado.');
@@ -2152,7 +2017,7 @@
                 return;
             }
 
-            const students = await loadStudents();
+            const students = loadStudents();
             const updated = students.map(student => {
                 if (student.id !== studentId) return student;
                 const nextData = { ...student };
@@ -2163,7 +2028,7 @@
                 }
                 return nextData;
             });
-            await saveStudents(updated);
+            saveStudents(updated);
             if (currentUser && currentUser.id === studentId) {
                 if (parsedValue === null) {
                     delete currentUser.weeklyLimitOverride;
@@ -2171,12 +2036,12 @@
                     currentUser.weeklyLimitOverride = parsedValue;
                 }
             }
-            await cargarAlumnosAdmin();
+            cargarAlumnosAdmin();
             showToast('Límite semanal actualizado.');
         }
 
-        async function eliminarAlumno(studentId) {
-            const students = await loadStudents();
+        function eliminarAlumno(studentId) {
+            const students = loadStudents();
             const student = students.find(item => item.id === studentId);
             if (!student) {
                 showToast('Alumno no encontrado.');
@@ -2186,25 +2051,25 @@
                 return;
             }
             const updated = students.filter(item => item.id !== studentId);
-            await saveStudents(updated);
-            await cargarResumenAdmin();
-            await cargarAlumnosAdmin();
-            await cargarAlumnosNoPagadosAdmin();
+            saveStudents(updated);
+            cargarResumenAdmin();
+            cargarAlumnosAdmin();
+            cargarAlumnosNoPagadosAdmin();
             showToast('Alumno eliminado.');
         }
 
-        async function actualizarPago(studentId, status) {
-            const students = await loadStudents();
+        function actualizarPago(studentId, status) {
+            const students = loadStudents();
             const updated = students.map(student =>
                 student.id === studentId ? { ...student, paymentStatus: status } : student
             );
-            await saveStudents(updated);
+            saveStudents(updated);
             if (currentUser && currentUser.id === studentId) {
                 currentUser.paymentStatus = status;
             }
-            await cargarResumenAdmin();
-            await cargarAlumnosAdmin();
-            await cargarAlumnosNoPagadosAdmin();
+            cargarResumenAdmin();
+            cargarAlumnosAdmin();
+            cargarAlumnosNoPagadosAdmin();
             showToast('Estado de pago actualizado');
         }
 
@@ -2217,9 +2082,9 @@
 
         document.getElementById('new-disciplina').addEventListener('change', actualizarPlanesDisponibles);
 
-        document.getElementById('form-new-alumno').addEventListener('submit', async (e) => {
+        document.getElementById('form-new-alumno').addEventListener('submit', (e) => {
             e.preventDefault();
-            const students = await loadStudents();
+            const students = loadStudents();
             const discipline = document.getElementById('new-disciplina').value;
             const name = document.getElementById('new-nombre').value.trim();
             const accessCode = generateAccessCode({ discipline });
@@ -2237,25 +2102,19 @@
             };
 
             students.push(newStudent);
-            await saveStudents(students);
+            saveStudents(students);
             document.getElementById('new-alumno-result').innerText = `Alumno ${newStudent.name} registrado. Clave de acceso: ${accessCode} (puedes usar el nombre como clave temporal).`;
             notifyStudentAccess(newStudent);
             document.getElementById('form-new-alumno').reset();
-            await cargarResumenAdmin();
-            await cargarAlumnosAdmin();
-            await cargarAlumnosNoPagadosAdmin();
+            cargarResumenAdmin();
+            cargarAlumnosAdmin();
+            cargarAlumnosNoPagadosAdmin();
         });
 
-        (async () => {
-            await loadStudents();
-            await loadTrialRequests();
-            await loadMeta();
-            await runMonthlyPaymentReset();
-            await hydrateScheduleEnrollments();
-            renderCards();
-            renderPublicSchedules();
-            updatePublicButtons();
-        })();
+        runMonthlyPaymentReset();
+        hydrateScheduleEnrollments();
+        renderCards();
+        updatePublicButtons();
     </script>
 </body>
 </html>
