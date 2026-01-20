@@ -196,6 +196,35 @@ function generateAccessCode(student) {
   return `${prefix}-${random}`;
 }
 
+function buildAccessMessage(student) {
+  const username = student?.name || "Alumno";
+  const accessKey = student?.accessCode || student?.name || "pendiente";
+  return `Hola ${username}, tu usuario es ${username} y tu clave de acceso es ${accessKey}.`;
+}
+
+function notifyStudentAccess(student) {
+  const message = buildAccessMessage(student);
+  const phone = (student?.phone || "").replace(/\s+/g, "");
+  const email = (student?.email || "").trim();
+
+  if (phone) {
+    const smsUrl = `sms:${encodeURIComponent(phone)}?body=${encodeURIComponent(message)}`;
+    window.open(smsUrl, "_blank", "noopener");
+    showToast("Mensaje de acceso listo para enviar por SMS.");
+    return;
+  }
+
+  if (email) {
+    const subject = "Acceso Elemental Dojo";
+    const mailUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    window.open(mailUrl, "_blank", "noopener");
+    showToast("Mensaje de acceso listo para enviar por correo.");
+    return;
+  }
+
+  showToast("No hay teléfono ni correo para enviar el acceso.");
+}
+
 function generateStudentUid() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -279,7 +308,12 @@ function openPublicSchedule(disciplineName) {
   document.getElementById("public-schedule-title").innerText = `Horarios: ${disciplineName}`;
   tbody.innerHTML = "";
 
-  const filteredSchedule = scheduleData.filter(s => s.class === disciplineName);
+  const filteredSchedule = scheduleData.filter(s => {
+    if (disciplineName === "Jiu Jitsu") {
+      return s.class === disciplineName || s.openMatOnly;
+    }
+    return s.class === disciplineName;
+  });
   const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sabado"];
 
   const times = [...new Set(filteredSchedule.map(s => s.time))].sort();
@@ -295,9 +329,10 @@ function openPublicSchedule(disciplineName) {
       const cls = filteredSchedule.find(s => s.day === day && s.time === time);
       if (cls) {
         const spots = cls.capacity - cls.enrolled.length;
+        const classLabel = cls.openMatOnly ? "Open Mat" : cls.class;
         row += `
           <td>
-            <span class="tt-header">${cls.class}</span>
+            <span class="tt-header">${classLabel}</span>
             <span class="tt-prof">${cls.instructor}</span>
             <span class="tt-spots">${spots} cupos</span>
           </td>
@@ -968,6 +1003,7 @@ async function agregarAlumnoDesdeTrial(requestId) {
   await saveStudents(students);
   await saveTrialRequests(requests.filter(req => req.id !== requestId));
   showToast(`Alumno ${newStudent.name} agregado.`);
+  notifyStudentAccess(newStudent);
   await cargarSolicitudesTrialAdmin();
   await cargarAlumnosAdmin();
 }
@@ -1314,6 +1350,7 @@ async function registrarNuevoAlumno(e) {
   students.push(newStudent);
   await saveStudents(students);
   document.getElementById("new-alumno-result").innerText = `Alumno ${newStudent.name} registrado. Clave de acceso: ${accessCode} (puedes usar el nombre como clave temporal).`;
+  notifyStudentAccess(newStudent);
   document.getElementById("form-new-alumno").reset();
   await cargarResumenAdmin();
   await cargarAlumnosAdmin();
