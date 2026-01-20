@@ -662,9 +662,9 @@
             </div>
             <div class="modal-body admin-panel">
                 <div class="admin-students-filters">
-                    <button class="btn-login" data-filter="Jiu Jitsu" onclick="setAdminStudentsFilter('Jiu Jitsu')">Jiu-Jitsu</button>
-                    <button class="btn-login" data-filter="Judo" onclick="setAdminStudentsFilter('Judo')">Judo</button>
-                    <button class="btn-login" data-filter="Kick Boxing" onclick="setAdminStudentsFilter('Kick Boxing')">Kickboxing</button>
+                    <button class="btn-login" data-filter="Jiu Jitsu" data-label="Jiu-Jitsu" onclick="setAdminStudentsFilter('Jiu Jitsu')">Jiu-Jitsu</button>
+                    <button class="btn-login" data-filter="Judo" data-label="Judo" onclick="setAdminStudentsFilter('Judo')">Judo</button>
+                    <button class="btn-login" data-filter="Kick Boxing" data-label="Kickboxing" onclick="setAdminStudentsFilter('Kick Boxing')">Kickboxing</button>
                 </div>
                 <div style="overflow-x:auto;">
                     <div id="admin-alumnos-container"></div>
@@ -1820,6 +1820,8 @@
             const container = document.getElementById('admin-alumnos-container');
             container.innerHTML = '';
 
+            updateAdminStudentsFilterCounts(students);
+
             if (students.length === 0) {
                 container.innerHTML = '<p class="muted">Sin alumnos registrados.</p>';
                 return;
@@ -1865,6 +1867,21 @@
                 const label = disciplineLabels[discipline] || discipline;
                 const title = `Alumnos de ${label}`;
                 container.appendChild(buildAdminStudentsSection(title, list, enrollments));
+            });
+        }
+
+        function updateAdminStudentsFilterCounts(students) {
+            const counts = Object.entries(ADMIN_STUDENT_FILTERS).reduce((acc, [key, config]) => {
+                acc[key] = students.filter(student => config.disciplines.includes(student.discipline)).length;
+                return acc;
+            }, {});
+
+            const buttons = document.querySelectorAll('.admin-students-filters button');
+            buttons.forEach(button => {
+                const filterKey = button.dataset.filter;
+                const label = button.dataset.label || button.textContent;
+                const count = counts[filterKey] ?? 0;
+                button.textContent = `${label} (${count})`;
             });
         }
 
