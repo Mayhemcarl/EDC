@@ -10,10 +10,10 @@ const SUPABASE_PUBLISHABLE_KEY = (typeof window !== "undefined" && window.NEXT_P
 let supabaseClient = null;
 
 // Tablas esperadas en Supabase:
-// - students (id, uid, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride, classDay, classTime)
+// - students (id, uid, name, discipline, plan, payment_status, phone, email, payment_due, access_code, weekly_limit_override, class_day, class_time)
 // - weekly_enrollments (id, enrollments)
-// - trial_requests (id, nombre, disciplina, telefono, email, fecha, plan, paymentStatus, classDay, classTime)
-// - meta (id, lastWeeklyReset, lastPaymentResetMonth, lastPaymentOverdueMonth)
+// - trial_requests (id, nombre, disciplina, telefono, email, fecha, plan, payment_status, class_day, class_time)
+// - meta (id, last_weekly_reset, last_payment_reset_month, last_payment_overdue_month, created_at, updated_at)
 
 const ADMIN_USER = "EDC2019";
 const ADMIN_CODE = "EDC2057";
@@ -147,6 +147,107 @@ function handleSupabaseError(error, context = "") {
   }
 }
 
+function toSnakeCaseField(field) {
+  return field.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+function mapStudentToRecord(student) {
+  return {
+    id: student.id,
+    uid: student.uid,
+    name: student.name,
+    discipline: student.discipline,
+    plan: student.plan,
+    payment_status: student.paymentStatus,
+    phone: student.phone,
+    email: student.email,
+    payment_due: student.paymentDue,
+    access_code: student.accessCode,
+    weekly_limit_override: student.weeklyLimitOverride ?? null,
+    class_day: student.classDay,
+    class_time: student.classTime
+  };
+}
+
+function mapStudentFromRecord(record) {
+  return {
+    id: record.id,
+    uid: record.uid,
+    name: record.name,
+    discipline: record.discipline,
+    plan: record.plan,
+    paymentStatus: record.payment_status,
+    phone: record.phone,
+    email: record.email,
+    paymentDue: record.payment_due,
+    accessCode: record.access_code,
+    weeklyLimitOverride: record.weekly_limit_override ?? undefined,
+    classDay: record.class_day,
+    classTime: record.class_time
+  };
+}
+
+function mapTrialToRecord(trial) {
+  return {
+    id: trial.id,
+    nombre: trial.nombre,
+    disciplina: trial.disciplina,
+    telefono: trial.telefono,
+    email: trial.email,
+    fecha: trial.fecha,
+    plan: trial.plan,
+    payment_status: trial.paymentStatus,
+    class_day: trial.classDay,
+    class_time: trial.classTime
+  };
+}
+
+function mapTrialFromRecord(record) {
+  return {
+    id: record.id,
+    nombre: record.nombre,
+    disciplina: record.disciplina,
+    telefono: record.telefono,
+    email: record.email,
+    fecha: record.fecha,
+    plan: record.plan,
+    paymentStatus: record.payment_status,
+    classDay: record.class_day,
+    classTime: record.class_time
+  };
+}
+
+function mapMetaToRecord(meta) {
+  return {
+    id: meta.id,
+    last_weekly_reset: meta.lastWeeklyReset,
+    last_payment_reset_month: meta.lastPaymentResetMonth,
+    last_payment_overdue_month: meta.lastPaymentOverdueMonth,
+    created_at: meta.createdAt,
+    updated_at: meta.updatedAt
+  };
+}
+
+function mapMetaFromRecord(record) {
+  return {
+    id: record.id,
+    lastWeeklyReset: record.last_weekly_reset,
+    lastPaymentResetMonth: record.last_payment_reset_month,
+    lastPaymentOverdueMonth: record.last_payment_overdue_month,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at
+  };
+}
+
+function mapUpdateFields(tableName, fields) {
+  if (tableName === "students" || tableName === "trial_requests" || tableName === "meta") {
+    return Object.fromEntries(
+      Object.entries(fields).map(([key, value]) => [toSnakeCaseField(key), value])
+    );
+  }
+  return fields;
+}
+
 async function setDocument(tableName, documentId, data) {
   const client = getSupabaseClient();
   if (!client) {
@@ -154,9 +255,16 @@ async function setDocument(tableName, documentId, data) {
   }
   try {
     const payload = { ...data, id: documentId };
+    const mappedPayload = tableName === "students"
+      ? mapStudentToRecord(payload)
+      : tableName === "trial_requests"
+        ? mapTrialToRecord(payload)
+        : tableName === "meta"
+          ? mapMetaToRecord(payload)
+          : payload;
     const { error } = await client
       .from(tableName)
-      .upsert(payload, { onConflict: "id" });
+      .upsert(mappedPayload, { onConflict: "id" });
     if (error) throw error;
     return true;
   } catch (error) {
@@ -171,9 +279,16 @@ async function addDocument(tableName, data) {
     return null;
   }
   try {
+    const payload = tableName === "students"
+      ? mapStudentToRecord(data)
+      : tableName === "trial_requests"
+        ? mapTrialToRecord(data)
+        : tableName === "meta"
+          ? mapMetaToRecord(data)
+          : data;
     const { data: inserted, error } = await client
       .from(tableName)
-      .insert(data)
+      .insert(payload)
       .select("id")
       .single();
     if (error) throw error;
@@ -190,9 +305,10 @@ async function updateDocumentFields(tableName, documentId, fields) {
     return false;
   }
   try {
+    const payload = mapUpdateFields(tableName, fields);
     const { error } = await client
       .from(tableName)
-      .update(fields)
+      .update(payload)
       .eq("id", documentId);
     if (error) throw error;
     return true;
@@ -214,7 +330,11 @@ async function getDocumentById(tableName, documentId) {
       .eq("id", documentId)
       .maybeSingle();
     if (error) throw error;
-    return data || null;
+    if (!data) return null;
+    if (tableName === "students") return mapStudentFromRecord(data);
+    if (tableName === "trial_requests") return mapTrialFromRecord(data);
+    if (tableName === "meta") return mapMetaFromRecord(data);
+    return data;
   } catch (error) {
     handleSupabaseError(error, `${tableName}:get`);
     return null;
@@ -252,7 +372,7 @@ async function loadStudents() {
       await saveStudents(DEFAULT_STUDENTS);
       return [...DEFAULT_STUDENTS];
     }
-    const students = data;
+    const students = data.map(mapStudentFromRecord);
     const { normalized, updated } = ensureStudentUids(students);
     if (updated) {
       await saveStudents(normalized);
@@ -288,9 +408,16 @@ async function syncCollectionById(collectionName, items) {
     }
 
     if (items.length) {
+      const payload = collectionName === "students"
+        ? items.map(mapStudentToRecord)
+        : collectionName === "trial_requests"
+          ? items.map(mapTrialToRecord)
+          : collectionName === "meta"
+            ? items.map(mapMetaToRecord)
+            : items;
       const { error: upsertError } = await client
         .from(collectionName)
-        .upsert(items, { onConflict: "id" });
+        .upsert(payload, { onConflict: "id" });
       if (upsertError) throw upsertError;
     }
   } catch (error) {
@@ -324,7 +451,7 @@ async function loadTrialRequests() {
     if (!data || data.length === 0) {
       return [];
     }
-    return data;
+    return data.map(mapTrialFromRecord);
   } catch (error) {
     handleSupabaseError(error, "loadTrialRequests");
     return cachedTrialRequests.length ? [...cachedTrialRequests] : [];
