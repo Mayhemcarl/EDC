@@ -995,6 +995,10 @@ function isOpenMatEligible(user) {
   return Boolean(user && user.discipline === "Jiu Jitsu");
 }
 
+function isTrialUser(user) {
+  return Boolean(user && user.plan === "PRUEBA");
+}
+
 function getWeeklyLimitForStudent(student) {
   if (!student) return 0;
   if (typeof student.weeklyLimitOverride === "number") {
@@ -1003,10 +1007,28 @@ function getWeeklyLimitForStudent(student) {
   return PLAN_CONFIG[student.plan]?.weeklyLimit || 0;
 }
 
+function isTrialClassForUser(cls, user) {
+  if (!isTrialUser(user)) return false;
+  if (user.classDay && user.classTime) {
+    return cls.day === user.classDay
+      && cls.time === user.classTime
+      && cls.class === user.discipline;
+  }
+  return cls.class === user.discipline;
+}
+
 function isClassRelevantForUser(cls, user) {
   if (!user) return false;
   if (cls.openMatOnly) return isOpenMatEligible(user);
   return cls.class === user.discipline;
+}
+
+function isClassVisibleForUser(cls, user) {
+  if (!isClassRelevantForUser(cls, user)) return false;
+  if (isTrialUser(user)) {
+    return isTrialClassForUser(cls, user);
+  }
+  return true;
 }
 
 function updatePublicButtons() {
@@ -1015,6 +1037,23 @@ function updatePublicButtons() {
   const shouldShow = !currentUser;
   if (loginButton) loginButton.classList.toggle("hidden", !shouldShow);
   if (trialButton) trialButton.classList.toggle("hidden", !shouldShow);
+}
+
+function updateScheduleButtonState() {
+  const button = document.getElementById("btnSchedule");
+  if (!button) return;
+  if (!currentUser || currentUser.role !== "member") {
+    button.classList.remove("has-trial-scheduled");
+    return;
+  }
+  if (!isTrialUser(currentUser)) {
+    button.classList.remove("has-trial-scheduled");
+    return;
+  }
+  const hasTrialScheduled = scheduleData.some(cls =>
+    cls.enrolled.some(enrolled => enrolled.name === currentUser.name)
+  );
+  button.classList.toggle("has-trial-scheduled", hasTrialScheduled);
 }
 
 function getUserWeeklyCount(user) {
@@ -1062,6 +1101,7 @@ function cerrarSesion() {
   isAdmin = false;
   document.getElementById("user-menu").classList.add("hidden");
   updatePublicButtons();
+  updateScheduleButtonState();
   showToast("Sesión cerrada");
 }
 
@@ -1216,7 +1256,7 @@ async function renderCalendar() {
   const days = isAdmin
     ? dayOrder
     : dayOrder.filter(day =>
-      scheduleData.some(cls => cls.day === day && isClassRelevantForUser(cls, currentUser))
+      scheduleData.some(cls => cls.day === day && isClassVisibleForUser(cls, currentUser))
     );
 
   let userCount = 0;
@@ -1261,7 +1301,7 @@ async function renderCalendar() {
     const dayClasses = scheduleData.filter(s => s.day === day);
     const relevantClasses = isAdmin
       ? dayClasses
-      : dayClasses.filter(c => isClassRelevantForUser(c, currentUser));
+      : dayClasses.filter(c => isClassVisibleForUser(c, currentUser));
 
     relevantClasses.forEach(c => {
       const isEnrolled = currentUser && c.enrolled.some(u => u.name === currentUser.name);
@@ -1314,6 +1354,8 @@ async function renderCalendar() {
     columnHTML += "</div>";
     grid.innerHTML += columnHTML;
   });
+
+  updateScheduleButtonState();
 }
 
 async function renderMisClases() {
@@ -1389,6 +1431,10 @@ async function toggleReservation(classId) {
 
   if (cls.openMatOnly && !isOpenMatEligible(currentUser)) {
     showToast("Esta clase es exclusiva para alumnos de Jiu Jitsu.");
+    return;
+  }
+  if (isTrialUser(currentUser) && !isTrialClassForUser(cls, currentUser)) {
+    showToast("Solo puedes reservar la clase de prueba asignada.");
     return;
   }
 
@@ -1686,12 +1732,16 @@ function updateAdminStudentFilterCounts(students) {
   });
 }
 
-function getPlanOptionsForDiscipline(discipline) {
+function getPlanOptionsForDiscipline(discipline, selectedPlan = "") {
   const plans = DISCIPLINE_PLANS[discipline] || [];
   if (plans.length === 0) {
-    return '<option value="PRUEBA">Clase de prueba</option>';
+    const selected = selectedPlan === "PRUEBA" ? " selected" : "";
+    return `<option value="PRUEBA"${selected}>Clase de prueba</option>`;
   }
-  return plans.map(planKey => `<option value="${planKey}">${PLAN_CONFIG[planKey]?.label || planKey}</option>`).join("");
+  return plans.map(planKey => {
+    const selected = selectedPlan === planKey ? " selected" : "";
+    return `<option value="${planKey}"${selected}>${PLAN_CONFIG[planKey]?.label || planKey}</option>`;
+  }).join("");
 }
 
 async function cargarClasesPorDisciplinaAdmin() {
@@ -1771,6 +1821,7 @@ function createAdminStudentRow(student, enrollments) {
     list.some(enrolled => enrolled.name === student.name)
   ).length;
   const planLimit = PLAN_CONFIG[student.plan]?.weeklyLimit || 0;
+  const planOptions = getPlanOptionsForDiscipline(student.discipline, student.plan);
   const overrideValue = typeof student.weeklyLimitOverride === "number"
     ? student.weeklyLimitOverride
     : "";
@@ -1790,7 +1841,17 @@ function createAdminStudentRow(student, enrollments) {
   row.innerHTML = `
     <td>${student.name}</td>
     <td>${student.discipline}</td>
-    <td>${PLAN_CONFIG[student.plan]?.label || student.plan}</td>
+    <td>
+      <div class="admin-inline">
+        <select class="form-control" id="plan-${student.id}">
+          <option value="">Seleccionar plan</option>
+          ${planOptions}
+          <option value="PRUEBA"${student.plan === "PRUEBA" ? " selected" : ""}>Clase de prueba</option>
+        </select>
+        <button class="btn-login" onclick="actualizarPlanAlumno('${student.id}')">Guardar</button>
+      </div>
+      <span class="admin-helper">Actual: ${PLAN_CONFIG[student.plan]?.label || student.plan}</span>
+    </td>
     <td><span class="admin-key-pill">${accessKey}</span></td>
     <td>${classCount}</td>
     <td>
@@ -1986,6 +2047,39 @@ async function actualizarPago(studentId, status) {
   await cargarAlumnosAdmin();
   await cargarAlumnosNoPagadosAdmin();
   showToast("Estado de pago actualizado");
+}
+
+async function actualizarPlanAlumno(studentId) {
+  const planSelect = document.getElementById(`plan-${studentId}`);
+  if (!planSelect) {
+    showToast("Selecciona un plan válido.");
+    return;
+  }
+  const selectedPlan = planSelect.value;
+  if (!selectedPlan) {
+    showToast("Selecciona un plan para guardar.");
+    return;
+  }
+
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const updated = students.map(student =>
+    student.id === studentId ? { ...student, plan: selectedPlan } : student
+  );
+  if (isSupabaseConfigured()) {
+    const saved = await updateDocumentFields("students", studentId, { plan: selectedPlan });
+    if (!saved) {
+      await saveStudents(updated);
+    } else {
+      cachedStudents = updated;
+    }
+  } else {
+    await saveStudents(updated);
+  }
+  if (currentUser && currentUser.id === studentId) {
+    currentUser.plan = selectedPlan;
+  }
+  await cargarAlumnosAdmin();
+  showToast("Plan actualizado correctamente.");
 }
 
 function actualizarPlanesDisponibles() {
@@ -2327,6 +2421,7 @@ window.setAdminWeekDiscipline = setAdminWeekDiscipline;
 window.setAdminStudentsFilter = setAdminStudentsFilter;
 window.toggleReservation = toggleReservation;
 window.actualizarPago = actualizarPago;
+window.actualizarPlanAlumno = actualizarPlanAlumno;
 window.eliminarAlumno = eliminarAlumno;
 window.actualizarLimiteSemanal = actualizarLimiteSemanal;
 window.agregarAlumnoDesdeTrial = agregarAlumnoDesdeTrial;
