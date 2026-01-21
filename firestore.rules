@@ -22,9 +22,9 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Por defecto todo lo demás queda bloqueado.
+    // Permitir acceso total mientras no haya autenticación en el frontend.
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }

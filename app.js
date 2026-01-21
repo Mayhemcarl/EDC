@@ -123,6 +123,7 @@ let isAdmin = false;
 let cachedStudents = [];
 let cachedTrialRequests = [];
 let cachedEnrollments = {};
+let adminStudentsFilter = "Jiu Jitsu";
 
 function isFirebaseConfigured() {
   return Object.values(FIREBASE_CONFIG).every(value =>
@@ -498,8 +499,7 @@ async function submitTrial(e) {
   };
 
   try {
-    const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
-    requests.unshift({
+    const newRequest = {
       id: `t${Date.now()}`,
       nombre: data.nombre,
       disciplina: data.disciplina,
@@ -510,8 +510,17 @@ async function submitTrial(e) {
       paymentStatus: "pendiente",
       classDay: data.classDay,
       classTime: data.classTime
-    });
-    await saveTrialRequests(requests);
+    };
+
+    if (isFirebaseConfigured()) {
+      const db = getFirebaseDb();
+      await setDoc(doc(db, "trial_requests", newRequest.id), newRequest);
+      cachedTrialRequests = [newRequest, ...cachedTrialRequests];
+    } else {
+      const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
+      requests.unshift(newRequest);
+      await saveTrialRequests(requests);
+    }
     showToast("Solicitud enviada correctamente");
     closeModal("trial-modal");
     document.querySelector("#trial-modal form").reset();
@@ -751,7 +760,7 @@ function abrirClasesSemanaAdmin() {
 }
 
 async function abrirAlumnosInscritosAdmin() {
-  await cargarAlumnosAdmin();
+  setAdminStudentsFilter(adminStudentsFilter);
   openModal("admin-students-modal");
 }
 
@@ -1230,6 +1239,20 @@ function setAdminWeekDiscipline(discipline) {
   cargarPlanClasesAdmin(discipline);
 }
 
+function setAdminStudentsFilter(discipline) {
+  adminStudentsFilter = discipline;
+  const buttons = document.querySelectorAll(".admin-students-filters button");
+  buttons.forEach(button => {
+    const filterValue = button.getAttribute("data-filter");
+    if (filterValue === discipline) {
+      button.classList.add("is-active");
+    } else {
+      button.classList.remove("is-active");
+    }
+  });
+  cargarAlumnosAdmin();
+}
+
 function getPlanOptionsForDiscipline(discipline) {
   const plans = DISCIPLINE_PLANS[discipline] || [];
   if (plans.length === 0) {
@@ -1393,6 +1416,21 @@ async function cargarAlumnosAdmin() {
     return;
   }
 
+  const filterMap = {
+    "Jiu Jitsu": ["Jiu Jitsu", "Jiu Jitsu Kid"],
+    "Judo": ["Judo"],
+    "Kick Boxing": ["Kick Boxing"]
+  };
+  const allowedDisciplines = filterMap[adminStudentsFilter];
+  const visibleStudents = allowedDisciplines
+    ? students.filter(student => allowedDisciplines.includes(student.discipline))
+    : students;
+
+  if (visibleStudents.length === 0) {
+    container.innerHTML = '<p class="muted">Sin alumnos registrados en esta disciplina.</p>';
+    return;
+  }
+
   const disciplineLabels = {
     "Jiu Jitsu": "Jiu-Jitsu",
     "Kick Boxing": "Kickboxing",
@@ -1402,7 +1440,7 @@ async function cargarAlumnosAdmin() {
   const grouped = new Map();
   disciplineOrder.forEach(discipline => grouped.set(discipline, []));
 
-  students.forEach(student => {
+  visibleStudents.forEach(student => {
     const rawDiscipline = student.discipline?.trim() || "Otros";
     const key = grouped.has(rawDiscipline) ? rawDiscipline : rawDiscipline;
     if (!grouped.has(key)) {
@@ -1750,6 +1788,7 @@ window.abrirAgregarAlumnoAdmin = abrirAgregarAlumnoAdmin;
 window.cerrarSesion = cerrarSesion;
 window.actualizarClaveAcceso = actualizarClaveAcceso;
 window.setAdminWeekDiscipline = setAdminWeekDiscipline;
+window.setAdminStudentsFilter = setAdminStudentsFilter;
 window.toggleReservation = toggleReservation;
 window.actualizarPago = actualizarPago;
 window.eliminarAlumno = eliminarAlumno;
