@@ -96,10 +96,7 @@ const WEEK_DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sabado
 const MIN_RESERVATION_NOTICE_MINUTES = 60;
 
 const DEFAULT_STUDENTS = [
-  { id: "s1", uid: "uid-s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "JJ_FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10", accessCode: "JJ-4821" },
-  { id: "s2", uid: "uid-s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "KB_STD", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05", accessCode: "KB-7395" },
-  { id: "s3", uid: "uid-s3", name: "Valentina Ríos", discipline: "Judo", plan: "JD_STD", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28", accessCode: "JD-2051" },
-  { id: "s4", uid: "uid-s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01", accessCode: "JK-1148" }
+ 
 ];
 
 const META_ID = "system";
@@ -881,8 +878,39 @@ async function submitTrial(e) {
 }
 
 async function getStudentsByName(name) {
+  const normalizedName = name.trim().toLowerCase();
+  
+  // PRIMERO: Buscar directamente en Supabase (sin depender del caché)
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient();
+      if (client) {
+        const { data, error } = await client
+          .from("students")
+          .select("*")
+          .ilike("name", name.trim());
+        
+        if (!error && data && data.length > 0) {
+          console.log("✅ Alumno encontrado en Supabase:", data[0]);
+          const students = data.map(mapStudentFromRecord);
+          // Actualizar caché localmente
+          cachedStudents = students;
+          return students;
+        }
+        if (error) {
+          console.error("❌ Error buscando alumno en Supabase:", error);
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error en getStudentsByName:", error);
+    }
+  }
+  
+  // FALLBACK: Buscar en caché si Supabase falló
   const students = cachedStudents.length ? cachedStudents : await loadStudents();
-  return students.filter(student => student.name.toLowerCase() === name.toLowerCase());
+  return students.filter(student => 
+    student.name.trim().toLowerCase() === normalizedName
+  );
 }
 
 async function handleLogin(e) {
