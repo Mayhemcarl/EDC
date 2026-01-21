@@ -1,28 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Colecciones usadas por el frontend sin autenticación.
-    match /students/{studentId} {
-      allow read, write: if true;
-    }
-
-    match /weeklyEnrollments/{weekKey} {
-      allow read, write: if true;
-    }
-
-    match /weekly_enrollments/{weekKey} {
-      allow read, write: if true;
-    }
-
-    match /trial_requests/{requestId} {
-      allow read, write: if true;
-    }
-
-    match /meta/{docId} {
-      allow read, write: if true;
-    }
-
-    // Permitir acceso total mientras no haya autenticación en el frontend.
+    // Forzar despliegue. Acceso global permitido.
     match /{document=**} {
       allow read, write: if true;
     }
