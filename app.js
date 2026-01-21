@@ -1,36 +1,19 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  doc,
-  writeBatch,
-  setDoc,
-  getDoc,
-  addDoc,
-  updateDoc,
-  onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const FIREBASE_CONFIG = {
-  projectId: "elemental-dojo-curico",
-  appId: "1:39532293146:web:0c44ace849aeed5f5335a3",
-  databaseURL: "https://elemental-dojo-curico-default-rtdb.firebaseio.com",
-  storageBucket: "elemental-dojo-curico.firebasestorage.app",
-  apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
-  authDomain: "elemental-dojo-curico.firebaseapp.com",
-  messagingSenderId: "39532293146",
-  measurementId: "G-YMBD4QWWMY",
-  projectNumber: "39532293146"
-};
+const SUPABASE_URL = (typeof window !== "undefined" && window.NEXT_PUBLIC_SUPABASE_URL)
+  || (typeof window !== "undefined" && window.SUPABASE_URL)
+  || "https://niwynypzworcceljudsr.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = (typeof window !== "undefined" && window.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY)
+  || (typeof window !== "undefined" && window.SUPABASE_PUBLISHABLE_KEY)
+  || "sb_publishable_kQTdaGFmqgWxVXVc9eAXgA_9Zhs631J";
 
-let firebaseDb = null;
+let supabaseClient = null;
 
-// Colecciones esperadas en Firestore:
-// - students/{id} (id, uid, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride, classDay, classTime)
-// - weekly_enrollments/{weekKey} (enrollments)
-// - trial_requests/{id} (id, nombre, disciplina, telefono, email, fecha, plan, paymentStatus, classDay, classTime)
-// - meta/system (id, lastWeeklyReset, lastPaymentResetMonth, lastPaymentOverdueMonth)
+// Tablas esperadas en Supabase:
+// - students (id, uid, name, discipline, plan, paymentStatus, phone, email, paymentDue, accessCode, weeklyLimitOverride, classDay, classTime)
+// - weekly_enrollments (id, enrollments)
+// - trial_requests (id, nombre, disciplina, telefono, email, fecha, plan, paymentStatus, classDay, classTime)
+// - meta (id, lastWeeklyReset, lastPaymentResetMonth, lastPaymentOverdueMonth)
 
 const ADMIN_USER = "EDC2019";
 const ADMIN_CODE = "EDC2057";
@@ -129,95 +112,111 @@ let cachedStudents = [];
 let cachedTrialRequests = [];
 let cachedEnrollments = {};
 let adminStudentsFilter = "Jiu Jitsu";
-let firebaseDisabled = false;
+let supabaseDisabled = false;
 
-function isFirebaseConfigured() {
-  return !firebaseDisabled && Object.values(FIREBASE_CONFIG).every(value =>
-    typeof value === "string" && value.trim() !== "" && !value.includes("your-")
-  );
+function isSupabaseConfigured() {
+  return !supabaseDisabled
+    && typeof SUPABASE_URL === "string"
+    && SUPABASE_URL.trim() !== ""
+    && typeof SUPABASE_PUBLISHABLE_KEY === "string"
+    && SUPABASE_PUBLISHABLE_KEY.trim() !== "";
 }
 
-function getFirebaseDb() {
-  if (!isFirebaseConfigured()) {
+function getSupabaseClient() {
+  if (!isSupabaseConfigured()) {
     return null;
   }
-  if (!firebaseDb) {
+  if (!supabaseClient) {
     try {
-      const app = initializeApp(FIREBASE_CONFIG);
-      firebaseDb = getFirestore(app);
+      supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
     } catch (error) {
-      console.error("Firebase init error:", error);
-      firebaseDisabled = true;
-      showToast("No se pudo inicializar Firebase. Revisa la configuración.");
+      console.error("Supabase init error:", error);
+      supabaseDisabled = true;
+      showToast("No se pudo inicializar Supabase. Revisa la configuración.");
       return null;
     }
   }
-  return firebaseDb;
+  return supabaseClient;
 }
 
-function handleFirestoreError(error, context = "") {
-  console.error(`Firebase error${context ? ` (${context})` : ""}:`, error);
-  if (error?.code === "permission-denied") {
-    firebaseDisabled = true;
-    showToast("Permisos de Firebase insuficientes. Revisa las reglas y despliegue.");
+function handleSupabaseError(error, context = "") {
+  console.error(`Supabase error${context ? ` (${context})` : ""}:`, error);
+  if (error?.code === "42501" || error?.message?.includes("permission")) {
+    supabaseDisabled = true;
+    showToast("Permisos de Supabase insuficientes. Revisa RLS y políticas.");
   }
 }
 
-async function setDocument(collectionName, documentId, data, options) {
-  const db = getFirebaseDb();
-  if (!db) {
+async function setDocument(tableName, documentId, data) {
+  const client = getSupabaseClient();
+  if (!client) {
     return false;
   }
   try {
-    await setDoc(doc(db, collectionName, documentId), data, options);
+    const payload = { ...data, id: documentId };
+    const { error } = await client
+      .from(tableName)
+      .upsert(payload, { onConflict: "id" });
+    if (error) throw error;
     return true;
   } catch (error) {
-    handleFirestoreError(error, `${collectionName}:set`);
+    handleSupabaseError(error, `${tableName}:set`);
     return false;
   }
 }
 
-async function addDocument(collectionName, data) {
-  const db = getFirebaseDb();
-  if (!db) {
+async function addDocument(tableName, data) {
+  const client = getSupabaseClient();
+  if (!client) {
     return null;
   }
   try {
-    const ref = await addDoc(collection(db, collectionName), data);
-    return ref.id;
+    const { data: inserted, error } = await client
+      .from(tableName)
+      .insert(data)
+      .select("id")
+      .single();
+    if (error) throw error;
+    return inserted?.id ?? null;
   } catch (error) {
-    handleFirestoreError(error, `${collectionName}:add`);
+    handleSupabaseError(error, `${tableName}:add`);
     return null;
   }
 }
 
-async function updateDocumentFields(collectionName, documentId, fields) {
-  const db = getFirebaseDb();
-  if (!db) {
+async function updateDocumentFields(tableName, documentId, fields) {
+  const client = getSupabaseClient();
+  if (!client) {
     return false;
   }
   try {
-    await updateDoc(doc(db, collectionName, documentId), fields);
+    const { error } = await client
+      .from(tableName)
+      .update(fields)
+      .eq("id", documentId);
+    if (error) throw error;
     return true;
   } catch (error) {
-    handleFirestoreError(error, `${collectionName}:update`);
+    handleSupabaseError(error, `${tableName}:update`);
     return false;
   }
 }
 
-async function getMetaDocument() {
-  const db = getFirebaseDb();
-  if (!db) {
+async function getDocumentById(tableName, documentId) {
+  const client = getSupabaseClient();
+  if (!client) {
     return null;
   }
   try {
-    const snapshot = await getDoc(doc(db, "meta", META_ID));
-    return snapshot.exists() ? snapshot.data() : null;
+    const { data, error } = await client
+      .from(tableName)
+      .select("*")
+      .eq("id", documentId)
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
   } catch (error) {
-    if (error?.code === "permission-denied") {
-      return null;
-    }
-    handleFirestoreError(error, "meta:get");
+    handleSupabaseError(error, `${tableName}:get`);
     return null;
   }
 }
@@ -239,60 +238,68 @@ function openTrialModal() {
 function openLoginModal() { openModal("login-modal"); }
 
 async function loadStudents() {
-  if (!isFirebaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     return [...DEFAULT_STUDENTS];
   }
-  const db = getFirebaseDb();
-  if (!db) {
+  const client = getSupabaseClient();
+  if (!client) {
     return cachedStudents.length ? [...cachedStudents] : [...DEFAULT_STUDENTS];
   }
   try {
-    const snapshot = await getDocs(collection(db, "students"));
-    if (snapshot.empty) {
+    const { data, error } = await client.from("students").select("*");
+    if (error) throw error;
+    if (!data || data.length === 0) {
       await saveStudents(DEFAULT_STUDENTS);
       return [...DEFAULT_STUDENTS];
     }
-    const students = snapshot.docs.map(docSnap => docSnap.data());
+    const students = data;
     const { normalized, updated } = ensureStudentUids(students);
     if (updated) {
       await saveStudents(normalized);
     }
     return normalized;
   } catch (error) {
-    handleFirestoreError(error, "loadStudents");
+    handleSupabaseError(error, "loadStudents");
     return cachedStudents.length ? [...cachedStudents] : [...DEFAULT_STUDENTS];
   }
 }
 
 async function syncCollectionById(collectionName, items) {
-  const db = getFirebaseDb();
-  if (!db) {
+  const client = getSupabaseClient();
+  if (!client) {
     return;
   }
-  const colRef = collection(db, collectionName);
   try {
-    const snapshot = await getDocs(colRef);
-    const batch = writeBatch(db);
+    const { data: existing, error: fetchError } = await client
+      .from(collectionName)
+      .select("id");
+    if (fetchError) throw fetchError;
+
     const incomingIds = new Set(items.map(item => item.id));
+    const existingIds = (existing || []).map(row => row.id);
+    const idsToDelete = existingIds.filter(id => !incomingIds.has(id));
 
-    snapshot.forEach(docSnap => {
-      if (!incomingIds.has(docSnap.id)) {
-        batch.delete(docSnap.ref);
-      }
-    });
+    if (idsToDelete.length) {
+      const { error: deleteError } = await client
+        .from(collectionName)
+        .delete()
+        .in("id", idsToDelete);
+      if (deleteError) throw deleteError;
+    }
 
-    items.forEach(item => {
-      batch.set(doc(db, collectionName, item.id), item);
-    });
-
-    await batch.commit();
+    if (items.length) {
+      const { error: upsertError } = await client
+        .from(collectionName)
+        .upsert(items, { onConflict: "id" });
+      if (upsertError) throw upsertError;
+    }
   } catch (error) {
-    handleFirestoreError(error, `syncCollection:${collectionName}`);
+    handleSupabaseError(error, `syncCollection:${collectionName}`);
   }
 }
 
 async function saveStudents(students) {
-  if (!isFirebaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     cachedStudents = [...students];
     return;
   }
@@ -301,27 +308,31 @@ async function saveStudents(students) {
 }
 
 async function loadTrialRequests() {
-  if (!isFirebaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     return [];
   }
-  const db = getFirebaseDb();
-  if (!db) {
+  const client = getSupabaseClient();
+  if (!client) {
     return cachedTrialRequests.length ? [...cachedTrialRequests] : [];
   }
   try {
-    const snapshot = await getDocs(collection(db, "trial_requests"));
-    if (snapshot.empty) {
+    const { data, error } = await client
+      .from("trial_requests")
+      .select("*")
+      .order("fecha", { ascending: false });
+    if (error) throw error;
+    if (!data || data.length === 0) {
       return [];
     }
-    return snapshot.docs.map(docSnap => docSnap.data());
+    return data;
   } catch (error) {
-    handleFirestoreError(error, "loadTrialRequests");
+    handleSupabaseError(error, "loadTrialRequests");
     return cachedTrialRequests.length ? [...cachedTrialRequests] : [];
   }
 }
 
 async function saveTrialRequests(requests) {
-  if (!isFirebaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     cachedTrialRequests = [...requests];
     return;
   }
@@ -418,11 +429,11 @@ function isReservationClosed(cls, now = new Date()) {
 
 async function getCurrentWeekEnrollments() {
   const weekKey = getWeekKey();
-  if (!isFirebaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     return {};
   }
-  const db = getFirebaseDb();
-  if (!db) {
+  const client = getSupabaseClient();
+  if (!client) {
     return cachedEnrollments || {};
   }
   try {
@@ -432,19 +443,19 @@ async function getCurrentWeekEnrollments() {
     }
     return data?.enrollments || {};
   } catch (error) {
-    handleFirestoreError(error, "weekly_enrollments:read");
+    handleSupabaseError(error, "weekly_enrollments:read");
     return cachedEnrollments || {};
   }
 }
 
 async function setCurrentWeekEnrollments(currentWeek) {
   const weekKey = getWeekKey();
-  if (!isFirebaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     cachedEnrollments = currentWeek;
     return;
   }
-  const db = getFirebaseDb();
-  if (!db) {
+  const client = getSupabaseClient();
+  if (!client) {
     cachedEnrollments = currentWeek;
     return;
   }
@@ -452,7 +463,7 @@ async function setCurrentWeekEnrollments(currentWeek) {
     await setDocument("weekly_enrollments", weekKey, { enrollments: currentWeek });
     cachedEnrollments = currentWeek;
   } catch (error) {
-    handleFirestoreError(error, "weekly_enrollments:write");
+    handleSupabaseError(error, "weekly_enrollments:write");
     cachedEnrollments = currentWeek;
   }
 }
@@ -632,21 +643,20 @@ async function submitTrial(e) {
       classTime: data.classTime
     };
 
-    if (isFirebaseConfigured()) {
+    if (isSupabaseConfigured()) {
       try {
-        if (!getFirebaseDb()) {
-          throw new Error("Firebase no inicializado");
+        if (!getSupabaseClient()) {
+          throw new Error("Supabase no inicializado");
         }
         const newId = await addDocument("trial_requests", newRequest);
         if (!newId) {
-          throw new Error("No se pudo guardar la solicitud en Firebase.");
+          throw new Error("No se pudo guardar la solicitud en Supabase.");
         }
         const requestWithId = { ...newRequest, id: newId };
-        await updateDocumentFields("trial_requests", newId, { id: newId });
         cachedTrialRequests = [requestWithId, ...cachedTrialRequests];
       } catch (error) {
-        handleFirestoreError(error, "trial_requests:write");
-        if (!isFirebaseConfigured()) {
+        handleSupabaseError(error, "trial_requests:write");
+        if (!isSupabaseConfigured()) {
           const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
           requests.unshift(newRequest);
           await saveTrialRequests(requests);
@@ -873,7 +883,7 @@ async function actualizarClaveAcceso(event) {
     student.id === currentUser.id ? { ...student, accessCode: newCode } : student
   );
 
-  if (isFirebaseConfigured()) {
+  if (isSupabaseConfigured()) {
     const updated = await updateDocumentFields("students", currentUser.id, { accessCode: newCode });
     if (!updated) {
       await saveStudents(updatedStudents);
@@ -1660,7 +1670,7 @@ async function actualizarLimiteSemanal(studentId) {
     }
     return nextData;
   });
-  if (isFirebaseConfigured()) {
+  if (isSupabaseConfigured()) {
     const fieldUpdate = parsedValue === null
       ? { weeklyLimitOverride: null }
       : { weeklyLimitOverride: parsedValue };
@@ -1707,7 +1717,7 @@ async function actualizarPago(studentId, status) {
   const updated = students.map(student =>
     student.id === studentId ? { ...student, paymentStatus: status } : student
   );
-  if (isFirebaseConfigured()) {
+  if (isSupabaseConfigured()) {
     const saved = await updateDocumentFields("students", studentId, { paymentStatus: status });
     if (!saved) {
       await saveStudents(updated);
@@ -1780,16 +1790,16 @@ function buildDefaultMeta(now = new Date()) {
 }
 
 async function loadMeta() {
-  // Si Firebase no está configurado, igual devolvemos un objeto completo
-  if (!isFirebaseConfigured()) {
+  // Si Supabase no está configurado, igual devolvemos un objeto completo
+  if (!isSupabaseConfigured()) {
     return buildDefaultMeta();
   }
 
-  const db = getFirebaseDb();
-  if (!db) {
+  const client = getSupabaseClient();
+  if (!client) {
     return buildDefaultMeta();
   }
-  const data = await getMetaDocument();
+  const data = await getDocumentById("meta", META_ID);
 
   // Si no existe, devolvemos el objeto por defecto sin forzar escritura
   if (!data) {
@@ -1805,25 +1815,20 @@ async function loadMeta() {
 }
 
 async function saveMeta(meta) {
-  if (!isFirebaseConfigured()) return;
+  if (!isSupabaseConfigured()) return;
 
-  const db = getFirebaseDb();
-  if (!db) {
+  const client = getSupabaseClient();
+  if (!client) {
     return;
   }
   try {
-    await setDocument(
-      "meta",
-      META_ID,
-      {
-        ...meta,
-        id: META_ID,
-        updatedAt: new Date().toISOString()
-      },
-      { merge: true }
-    );
+    await setDocument("meta", META_ID, {
+      ...meta,
+      id: META_ID,
+      updatedAt: new Date().toISOString()
+    });
   } catch (error) {
-    handleFirestoreError(error, "saveMeta");
+    handleSupabaseError(error, "saveMeta");
   }
 }
 
@@ -1896,86 +1901,111 @@ function isModalOpen(id) {
 }
 
 function listenToRealtimeUpdates() {
-  if (!isFirebaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     return;
   }
-  const db = getFirebaseDb();
-  if (!db) {
+  const client = getSupabaseClient();
+  if (!client) {
     return;
   }
   const weekKey = getWeekKey();
 
-  onSnapshot(
-    collection(db, "students"),
-    async snapshot => {
-      const students = snapshot.docs.map(docSnap => docSnap.data());
-      const { normalized, updated } = ensureStudentUids(students);
-      if (updated) {
-        await saveStudents(normalized);
-        return;
+  client
+    .channel("students-changes")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "students" },
+      async () => {
+        const students = await loadStudents();
+        const { normalized, updated } = ensureStudentUids(students);
+        if (updated) {
+          await saveStudents(normalized);
+          return;
+        }
+        cachedStudents = normalized;
+        refreshCurrentUser(normalized);
+        if (isAdmin) {
+          await cargarResumenAdmin();
+          await cargarAlumnosAdmin();
+          await cargarAlumnosNoPagadosAdmin();
+        }
+        if (isModalOpen("profile-modal")) {
+          abrirPerfil();
+        }
+        if (isModalOpen("payment-modal")) {
+          cargarEstadoPagoUsuario();
+        }
+        if (isModalOpen("calendar-modal")) {
+          await renderCalendar();
+        }
+        if (isModalOpen("my-classes-modal")) {
+          await renderMisClases();
+        }
       }
-      cachedStudents = normalized;
-      refreshCurrentUser(normalized);
-      if (isAdmin) {
-        await cargarResumenAdmin();
-        await cargarAlumnosAdmin();
-        await cargarAlumnosNoPagadosAdmin();
+    )
+    .subscribe(status => {
+      if (status === "CHANNEL_ERROR") {
+        showToast("No se pudo suscribir a cambios en alumnos.");
       }
-      if (isModalOpen("profile-modal")) {
-        abrirPerfil();
-      }
-      if (isModalOpen("payment-modal")) {
-        cargarEstadoPagoUsuario();
-      }
-      if (isModalOpen("calendar-modal")) {
-        await renderCalendar();
-      }
-      if (isModalOpen("my-classes-modal")) {
-        await renderMisClases();
-      }
-    },
-    error => handleFirestoreError(error, "students:onSnapshot")
-  );
+    });
 
-  onSnapshot(
-    collection(db, "trial_requests"),
-    async snapshot => {
-      cachedTrialRequests = snapshot.docs.map(docSnap => docSnap.data());
-      if (isAdmin && isModalOpen("admin-trial-modal")) {
-        await cargarSolicitudesTrialAdmin();
+  client
+    .channel("trial-requests-changes")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "trial_requests" },
+      async () => {
+        cachedTrialRequests = await loadTrialRequests();
+        if (isAdmin && isModalOpen("admin-trial-modal")) {
+          await cargarSolicitudesTrialAdmin();
+        }
       }
-    },
-    error => handleFirestoreError(error, "trial_requests:onSnapshot")
-  );
+    )
+    .subscribe(status => {
+      if (status === "CHANNEL_ERROR") {
+        showToast("No se pudo suscribir a cambios en solicitudes.");
+      }
+    });
 
-  onSnapshot(
-    doc(db, "weekly_enrollments", weekKey),
-    async snapshot => {
-      const data = snapshot.exists() ? snapshot.data() : null;
-      const enrollments = data?.enrollments || {};
-      applyEnrollmentsToSchedule(enrollments);
-      if (isModalOpen("calendar-modal")) {
-        await renderCalendar();
+  client
+    .channel("weekly-enrollments-changes")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "weekly_enrollments",
+        filter: `id=eq.${weekKey}`
+      },
+      payload => {
+        const enrollments = payload?.new?.enrollments || {};
+        applyEnrollmentsToSchedule(enrollments);
+        if (isModalOpen("calendar-modal")) {
+          renderCalendar();
+        }
+        if (isModalOpen("my-classes-modal")) {
+          renderMisClases();
+        }
+        if (isAdmin) {
+          cargarClasesAgendadasAdmin();
+          cargarClasesPorDisciplinaAdmin();
+          cargarAlumnosAdmin();
+        }
       }
-      if (isModalOpen("my-classes-modal")) {
-        await renderMisClases();
+    )
+    .subscribe(status => {
+      if (status === "CHANNEL_ERROR") {
+        showToast("No se pudo suscribir a cambios de reservas.");
       }
-      if (isAdmin) {
-        await cargarClasesAgendadasAdmin();
-        await cargarClasesPorDisciplinaAdmin();
-        await cargarAlumnosAdmin();
-      }
-    },
-    error => handleFirestoreError(error, "weekly_enrollments:onSnapshot")
-  );
+    });
 }
 
 async function init() {
   renderCards();
   updatePublicButtons();
   try {
-    if (!isFirebaseConfigured()) {
-      showToast("Configura Firebase para cargar datos reales.");
+    if (!isSupabaseConfigured()) {
+      showToast("Configura Supabase para cargar datos reales.");
     }
     await runMaintenance();
     cachedStudents = await loadStudents();
