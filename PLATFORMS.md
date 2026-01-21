@@ -3,6 +3,8 @@
 Este proyecto usa Firebase Realtime Database para gestionar alumnos, clases agendadas y estados de pago. Para habilitar la misma base en web, iOS y Android, sigue estos pasos.
 ## Uso de Cloud Firestore (escritura y lectura)
 
+## Uso de Cloud Firestore (escritura y lectura)
+
 En Cloud Firestore trabajas con **colecciones** y **documentos**. Cada documento contiene campos con sus valores.
 
 **Escribir datos:**
@@ -14,6 +16,7 @@ En Cloud Firestore trabajas con **colecciones** y **documentos**. Cada documento
 - `get()` obtiene un documento puntual por su ID.
 - Para consultar colecciones o subconjuntos de documentos puedes usar `where()` para filtrar y `orderBy()` para ordenar.
 - Puedes hacer lecturas únicas o configurar *listeners* en tiempo real para recibir cambios cuando los datos se actualicen.
+
 ## 1) Configurar el proyecto en Firebase
 
 1. Ingresa a la consola de Firebase y crea (o selecciona) el proyecto.

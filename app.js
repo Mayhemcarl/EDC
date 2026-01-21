@@ -7,6 +7,8 @@ import {
   writeBatch,
   setDoc,
   getDoc,
+  addDoc,
+  updateDoc,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
@@ -158,6 +160,62 @@ function handleFirestoreError(error, context = "") {
   if (error?.code === "permission-denied") {
     firebaseDisabled = true;
     showToast("Permisos de Firebase insuficientes. Revisa las reglas y despliegue.");
+  }
+}
+
+async function setDocument(collectionName, documentId, data, options) {
+  const db = getFirebaseDb();
+  if (!db) {
+    return false;
+  }
+  try {
+    await setDoc(doc(db, collectionName, documentId), data, options);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, `${collectionName}:set`);
+    return false;
+  }
+}
+
+async function addDocument(collectionName, data) {
+  const db = getFirebaseDb();
+  if (!db) {
+    return null;
+  }
+  try {
+    const ref = await addDoc(collection(db, collectionName), data);
+    return ref.id;
+  } catch (error) {
+    handleFirestoreError(error, `${collectionName}:add`);
+    return null;
+  }
+}
+
+async function updateDocumentFields(collectionName, documentId, fields) {
+  const db = getFirebaseDb();
+  if (!db) {
+    return false;
+  }
+  try {
+    await updateDoc(doc(db, collectionName, documentId), fields);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, `${collectionName}:update`);
+    return false;
+  }
+}
+
+async function getDocumentById(collectionName, documentId) {
+  const db = getFirebaseDb();
+  if (!db) {
+    return null;
+  }
+  try {
+    const snapshot = await getDoc(doc(db, collectionName, documentId));
+    return snapshot.exists() ? snapshot.data() : null;
+  } catch (error) {
+    handleFirestoreError(error, `${collectionName}:get`);
+    return null;
   }
 }
 
@@ -364,11 +422,10 @@ async function getCurrentWeekEnrollments() {
     return cachedEnrollments || {};
   }
   try {
-    const snapshot = await getDoc(doc(db, "weekly_enrollments", weekKey));
-    if (!snapshot.exists()) {
+    const data = await getDocumentById("weekly_enrollments", weekKey);
+    if (!data) {
       return {};
     }
-    const data = snapshot.data();
     return data?.enrollments || {};
   } catch (error) {
     handleFirestoreError(error, "weekly_enrollments:read");
@@ -388,7 +445,7 @@ async function setCurrentWeekEnrollments(currentWeek) {
     return;
   }
   try {
-    await setDoc(doc(db, "weekly_enrollments", weekKey), { enrollments: currentWeek });
+    await setDocument("weekly_enrollments", weekKey, { enrollments: currentWeek });
     cachedEnrollments = currentWeek;
   } catch (error) {
     handleFirestoreError(error, "weekly_enrollments:write");
@@ -573,12 +630,16 @@ async function submitTrial(e) {
 
     if (isFirebaseConfigured()) {
       try {
-        const db = getFirebaseDb();
-        if (!db) {
+        if (!getFirebaseDb()) {
           throw new Error("Firebase no inicializado");
         }
-        await setDoc(doc(db, "trial_requests", newRequest.id), newRequest);
-        cachedTrialRequests = [newRequest, ...cachedTrialRequests];
+        const newId = await addDocument("trial_requests", newRequest);
+        if (!newId) {
+          throw new Error("No se pudo guardar la solicitud en Firebase.");
+        }
+        const requestWithId = { ...newRequest, id: newId };
+        await updateDocumentFields("trial_requests", newId, { id: newId });
+        cachedTrialRequests = [requestWithId, ...cachedTrialRequests];
       } catch (error) {
         handleFirestoreError(error, "trial_requests:write");
         if (!isFirebaseConfigured()) {
@@ -808,7 +869,16 @@ async function actualizarClaveAcceso(event) {
     student.id === currentUser.id ? { ...student, accessCode: newCode } : student
   );
 
-  await saveStudents(updatedStudents);
+  if (isFirebaseConfigured()) {
+    const updated = await updateDocumentFields("students", currentUser.id, { accessCode: newCode });
+    if (!updated) {
+      await saveStudents(updatedStudents);
+    } else {
+      cachedStudents = updatedStudents;
+    }
+  } else {
+    await saveStudents(updatedStudents);
+  }
   currentUser.accessCode = newCode;
   document.getElementById("profile-access-code").innerText = newCode;
   document.getElementById("form-update-access-code").reset();
@@ -1586,7 +1656,19 @@ async function actualizarLimiteSemanal(studentId) {
     }
     return nextData;
   });
-  await saveStudents(updated);
+  if (isFirebaseConfigured()) {
+    const fieldUpdate = parsedValue === null
+      ? { weeklyLimitOverride: null }
+      : { weeklyLimitOverride: parsedValue };
+    const saved = await updateDocumentFields("students", studentId, fieldUpdate);
+    if (!saved) {
+      await saveStudents(updated);
+    } else {
+      cachedStudents = updated;
+    }
+  } else {
+    await saveStudents(updated);
+  }
   if (currentUser && currentUser.id === studentId) {
     if (parsedValue === null) {
       delete currentUser.weeklyLimitOverride;
@@ -1621,7 +1703,16 @@ async function actualizarPago(studentId, status) {
   const updated = students.map(student =>
     student.id === studentId ? { ...student, paymentStatus: status } : student
   );
-  await saveStudents(updated);
+  if (isFirebaseConfigured()) {
+    const saved = await updateDocumentFields("students", studentId, { paymentStatus: status });
+    if (!saved) {
+      await saveStudents(updated);
+    } else {
+      cachedStudents = updated;
+    }
+  } else {
+    await saveStudents(updated);
+  }
   if (currentUser && currentUser.id === studentId) {
     currentUser.paymentStatus = status;
   }
@@ -1694,32 +1785,19 @@ async function loadMeta() {
   if (!db) {
     return buildDefaultMeta();
   }
-  const ref = doc(db, "meta", META_ID);
+  const data = await getDocumentById("meta", META_ID);
 
-  try {
-    const snap = await getDoc(ref);
-
-    // Si no existe, devolvemos el objeto por defecto sin forzar escritura
-    if (!snap.exists()) {
-      return buildDefaultMeta();
-    }
-
-    // Si existe, devolvemos asegurando defaults (por si faltan campos)
-    const data = snap.data() || {};
-    return {
-      ...buildDefaultMeta(),
-      ...data,
-      id: META_ID
-    };
-  } catch (error) {
-    if (error?.code === "permission-denied") {
-      console.warn("Firebase permission error (loadMeta):", error);
-      showToast("Permisos insuficientes para leer meta en Firebase.");
-      return buildDefaultMeta();
-    }
-    handleFirestoreError(error, "loadMeta");
+  // Si no existe, devolvemos el objeto por defecto sin forzar escritura
+  if (!data) {
     return buildDefaultMeta();
   }
+
+  // Si existe, devolvemos asegurando defaults (por si faltan campos)
+  return {
+    ...buildDefaultMeta(),
+    ...data,
+    id: META_ID
+  };
 }
 
 async function saveMeta(meta) {
@@ -1730,9 +1808,9 @@ async function saveMeta(meta) {
     return;
   }
   try {
-    const ref = doc(db, "meta", META_ID);
-    await setDoc(
-      ref,
+    await setDocument(
+      "meta",
+      META_ID,
       {
         ...meta,
         id: META_ID,
