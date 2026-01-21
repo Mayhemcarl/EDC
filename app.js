@@ -7,6 +7,7 @@ import {
   writeBatch,
   setDoc,
   getDoc,
+  addDoc,
   updateDoc,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
@@ -173,6 +174,20 @@ async function setDocument(collectionName, documentId, data, options) {
   } catch (error) {
     handleFirestoreError(error, `${collectionName}:set`);
     return false;
+  }
+}
+
+async function addDocument(collectionName, data) {
+  const db = getFirebaseDb();
+  if (!db) {
+    return null;
+  }
+  try {
+    const ref = await addDoc(collection(db, collectionName), data);
+    return ref.id;
+  } catch (error) {
+    handleFirestoreError(error, `${collectionName}:add`);
+    return null;
   }
 }
 
@@ -618,11 +633,13 @@ async function submitTrial(e) {
         if (!getFirebaseDb()) {
           throw new Error("Firebase no inicializado");
         }
-        const wrote = await setDocument("trial_requests", newRequest.id, newRequest);
-        if (!wrote) {
+        const newId = await addDocument("trial_requests", newRequest);
+        if (!newId) {
           throw new Error("No se pudo guardar la solicitud en Firebase.");
         }
-        cachedTrialRequests = [newRequest, ...cachedTrialRequests];
+        const requestWithId = { ...newRequest, id: newId };
+        await updateDocumentFields("trial_requests", newId, { id: newId });
+        cachedTrialRequests = [requestWithId, ...cachedTrialRequests];
       } catch (error) {
         handleFirestoreError(error, "trial_requests:write");
         if (!isFirebaseConfigured()) {
@@ -1639,7 +1656,19 @@ async function actualizarLimiteSemanal(studentId) {
     }
     return nextData;
   });
-  await saveStudents(updated);
+  if (isFirebaseConfigured()) {
+    const fieldUpdate = parsedValue === null
+      ? { weeklyLimitOverride: null }
+      : { weeklyLimitOverride: parsedValue };
+    const saved = await updateDocumentFields("students", studentId, fieldUpdate);
+    if (!saved) {
+      await saveStudents(updated);
+    } else {
+      cachedStudents = updated;
+    }
+  } else {
+    await saveStudents(updated);
+  }
   if (currentUser && currentUser.id === studentId) {
     if (parsedValue === null) {
       delete currentUser.weeklyLimitOverride;
@@ -1674,7 +1703,16 @@ async function actualizarPago(studentId, status) {
   const updated = students.map(student =>
     student.id === studentId ? { ...student, paymentStatus: status } : student
   );
-  await saveStudents(updated);
+  if (isFirebaseConfigured()) {
+    const saved = await updateDocumentFields("students", studentId, { paymentStatus: status });
+    if (!saved) {
+      await saveStudents(updated);
+    } else {
+      cachedStudents = updated;
+    }
+  } else {
+    await saveStudents(updated);
+  }
   if (currentUser && currentUser.id === studentId) {
     currentUser.paymentStatus = status;
   }
