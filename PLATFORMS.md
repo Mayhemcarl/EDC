@@ -1,6 +1,7 @@
 # Inicialización de Firebase para Web, iOS y Android
 
 Este proyecto usa Firebase Realtime Database para gestionar alumnos, clases agendadas y estados de pago. Para habilitar la misma base en web, iOS y Android, sigue estos pasos.
+## Uso de Cloud Firestore (escritura y lectura)
 
 ## Uso de Cloud Firestore (escritura y lectura)
 
