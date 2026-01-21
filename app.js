@@ -604,18 +604,17 @@ function getClassStartDate(cls, now = new Date()) {
 
   const todayIndex = now.getDay();
   const targetIndex = DAY_INDEX[cls.day];
-  let daysUntil = (targetIndex - todayIndex + 7) % 7;
+  const dayOffset = targetIndex - todayIndex;
 
-  if (daysUntil === 0 && classDate < now) {
-    return classDate;
-  }
-
-  classDate.setDate(classDate.getDate() + daysUntil);
+  classDate.setDate(classDate.getDate() + dayOffset);
   return classDate;
 }
 
 function isReservationClosed(cls, now = new Date()) {
   const classDate = getClassStartDate(cls, now);
+  if (classDate <= now) {
+    return true;
+  }
   const diffMs = classDate - now;
   return diffMs <= MIN_RESERVATION_NOTICE_MINUTES * 60 * 1000;
 }
@@ -671,6 +670,33 @@ function applyEnrollmentsToSchedule(weekEnrollments) {
   scheduleData.forEach(cls => {
     cls.enrolled = weekEnrollments[cls.id] || [];
   });
+}
+
+async function removeStudentFromWeeklyEnrollments(studentName) {
+  if (!studentName) return;
+  const currentWeek = (cachedEnrollments && Object.keys(cachedEnrollments).length)
+    ? cachedEnrollments
+    : await getCurrentWeekEnrollments();
+  const updatedWeek = { ...currentWeek };
+  let updated = false;
+
+  Object.entries(updatedWeek).forEach(([classId, enrollments]) => {
+    if (!Array.isArray(enrollments)) {
+      return;
+    }
+    const filtered = enrollments.filter(enrolled => enrolled.name !== studentName);
+    if (filtered.length !== enrollments.length) {
+      updatedWeek[classId] = filtered;
+      updated = true;
+    }
+  });
+
+  if (!updated) {
+    return;
+  }
+
+  applyEnrollmentsToSchedule(updatedWeek);
+  await setCurrentWeekEnrollments(updatedWeek);
 }
 
 function getScheduleMapForDiscipline(discipline) {
@@ -1931,6 +1957,7 @@ async function eliminarAlumno(studentId) {
   }
   const updated = students.filter(item => item.id !== studentId);
   await saveStudents(updated);
+  await removeStudentFromWeeklyEnrollments(student.name);
   await cargarResumenAdmin();
   await cargarAlumnosAdmin();
   await cargarAlumnosNoPagadosAdmin();
