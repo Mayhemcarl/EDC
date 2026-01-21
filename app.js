@@ -1699,11 +1699,9 @@ async function loadMeta() {
   try {
     const snap = await getDoc(ref);
 
-    // Si no existe, lo creamos (esto crea "meta" y el doc "system")
+    // Si no existe, devolvemos el objeto por defecto sin forzar escritura
     if (!snap.exists()) {
-      const initial = buildDefaultMeta();
-      await setDoc(ref, initial);
-      return initial;
+      return buildDefaultMeta();
     }
 
     // Si existe, devolvemos asegurando defaults (por si faltan campos)
@@ -1714,6 +1712,11 @@ async function loadMeta() {
       id: META_ID
     };
   } catch (error) {
+    if (error?.code === "permission-denied") {
+      console.warn("Firebase permission error (loadMeta):", error);
+      showToast("Permisos insuficientes para leer meta en Firebase.");
+      return buildDefaultMeta();
+    }
     handleFirestoreError(error, "loadMeta");
     return buildDefaultMeta();
   }
