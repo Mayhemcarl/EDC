@@ -1,4 +1,27 @@
-  const firebaseDb = getFirestore(app);
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  doc,
+  writeBatch,
+  setDoc,
+  getDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+const FIREBASE_CONFIG = {
+  projectId: "elemental-dojo-curico",
+  appId: "1:39532293146:web:0c44ace849aeed5f5335a3",
+  databaseURL: "https://elemental-dojo-curico-default-rtdb.firebaseio.com",
+  storageBucket: "elemental-dojo-curico.firebasestorage.app",
+  apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
+  authDomain: "elemental-dojo-curico.firebaseapp.com",
+  messagingSenderId: "39532293146",
+  measurementId: "G-YMBD4QWWMY",
+  projectNumber: "39532293146"
+};
+
 let firebaseDb = null;
 
 // Colecciones esperadas en Firestore:
@@ -117,8 +140,15 @@ function getFirebaseDb() {
     return null;
   }
   if (!firebaseDb) {
-    const app = initializeApp(FIREBASE_CONFIG);
-    firebaseDb = getFirestore(app);
+    try {
+      const app = initializeApp(FIREBASE_CONFIG);
+      firebaseDb = getFirestore(app);
+    } catch (error) {
+      console.error("Firebase init error:", error);
+      firebaseDisabled = true;
+      showToast("No se pudo inicializar Firebase. Revisa la configuración.");
+      return null;
+    }
   }
   return firebaseDb;
 }
@@ -151,6 +181,9 @@ async function loadStudents() {
     return [...DEFAULT_STUDENTS];
   }
   const db = getFirebaseDb();
+  if (!db) {
+    return cachedStudents.length ? [...cachedStudents] : [...DEFAULT_STUDENTS];
+  }
   try {
     const snapshot = await getDocs(collection(db, "students"));
     if (snapshot.empty) {
@@ -171,6 +204,9 @@ async function loadStudents() {
 
 async function syncCollectionById(collectionName, items) {
   const db = getFirebaseDb();
+  if (!db) {
+    return;
+  }
   const colRef = collection(db, collectionName);
   try {
     const snapshot = await getDocs(colRef);
@@ -207,6 +243,9 @@ async function loadTrialRequests() {
     return [];
   }
   const db = getFirebaseDb();
+  if (!db) {
+    return cachedTrialRequests.length ? [...cachedTrialRequests] : [];
+  }
   try {
     const snapshot = await getDocs(collection(db, "trial_requests"));
     if (snapshot.empty) {
@@ -321,6 +360,9 @@ async function getCurrentWeekEnrollments() {
     return {};
   }
   const db = getFirebaseDb();
+  if (!db) {
+    return cachedEnrollments || {};
+  }
   try {
     const snapshot = await getDoc(doc(db, "weekly_enrollments", weekKey));
     if (!snapshot.exists()) {
@@ -341,6 +383,10 @@ async function setCurrentWeekEnrollments(currentWeek) {
     return;
   }
   const db = getFirebaseDb();
+  if (!db) {
+    cachedEnrollments = currentWeek;
+    return;
+  }
   try {
     await setDoc(doc(db, "weekly_enrollments", weekKey), { enrollments: currentWeek });
     cachedEnrollments = currentWeek;
@@ -528,6 +574,9 @@ async function submitTrial(e) {
     if (isFirebaseConfigured()) {
       try {
         const db = getFirebaseDb();
+        if (!db) {
+          throw new Error("Firebase no inicializado");
+        }
         await setDoc(doc(db, "trial_requests", newRequest.id), newRequest);
         cachedTrialRequests = [newRequest, ...cachedTrialRequests];
       } catch (error) {
@@ -540,9 +589,6 @@ async function submitTrial(e) {
           throw error;
         }
       }
-      const db = getFirebaseDb();
-      await setDoc(doc(db, "trial_requests", newRequest.id), newRequest);
-      cachedTrialRequests = [newRequest, ...cachedTrialRequests];
     } else {
       const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
       requests.unshift(newRequest);
@@ -1645,6 +1691,9 @@ async function loadMeta() {
   }
 
   const db = getFirebaseDb();
+  if (!db) {
+    return buildDefaultMeta();
+  }
   const ref = doc(db, "meta", META_ID);
 
   try {
@@ -1674,6 +1723,9 @@ async function saveMeta(meta) {
   if (!isFirebaseConfigured()) return;
 
   const db = getFirebaseDb();
+  if (!db) {
+    return;
+  }
   try {
     const ref = doc(db, "meta", META_ID);
     await setDoc(
@@ -1763,6 +1815,9 @@ function listenToRealtimeUpdates() {
     return;
   }
   const db = getFirebaseDb();
+  if (!db) {
+    return;
+  }
   const weekKey = getWeekKey();
 
   onSnapshot(
