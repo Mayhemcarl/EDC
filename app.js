@@ -14,9 +14,7 @@ let supabaseClient = null;
 // - weekly_enrollments (id, enrollments)
 // - trial_requests (id, nombre, disciplina, telefono, email, fecha, plan, payment_status, class_day, class_time)
 // - meta (id, last_weekly_reset, last_payment_reset_month, last_payment_overdue_month, created_at, updated_at)
-
-const ADMIN_USER = "EDC2019";
-const ADMIN_CODE = "EDC2057";
+// - admins (id, username, access_code)
 
 const scheduleData = [
   { id: 1, day: "Lunes", time: "18:30", class: "Jiu Jitsu", instructor: "Prof. Carlos G", capacity: 25, enrolled: [] },
@@ -145,6 +143,77 @@ function handleSupabaseError(error, context = "") {
     supabaseDisabled = true;
     showToast("Permisos de Supabase insuficientes. Revisa RLS y políticas.");
   }
+}
+
+async function adminFieldExists(field, value, client) {
+  if (!value || !client) return false;
+  try {
+    const { data, error } = await client
+      .from("admins")
+      .select("id")
+      .ilike(field, value)
+      .maybeSingle();
+    if (error) {
+      handleSupabaseError(error, `admins:${field}`);
+      return false;
+    }
+    return Boolean(data);
+  } catch (error) {
+    handleSupabaseError(error, `admins:${field}`);
+    return false;
+  }
+}
+
+async function isAdminCredentialMatch(name, code) {
+  if (!isSupabaseConfigured()) return false;
+  const client = getSupabaseClient();
+  if (!client) return false;
+  if (!name || !code) return false;
+  try {
+    const { data, error } = await client
+      .from("admins")
+      .select("id, username")
+      .ilike("username", name)
+      .ilike("access_code", code)
+      .maybeSingle();
+    if (error) {
+      handleSupabaseError(error, "admins:auth");
+      return false;
+    }
+    return Boolean(data);
+  } catch (error) {
+    handleSupabaseError(error, "admins:auth");
+    return false;
+  }
+}
+
+async function getAdminLoginStatus(name, code) {
+  const normalizedName = name.trim();
+  const normalizedCode = code.trim();
+  if (!normalizedName && !normalizedCode) return "none";
+  if (!isSupabaseConfigured()) return "unavailable";
+  const client = getSupabaseClient();
+  if (!client) return "unavailable";
+  const matched = await isAdminCredentialMatch(normalizedName, normalizedCode);
+  if (matched) return "match";
+  const [nameExists, codeExists] = await Promise.all([
+    adminFieldExists("username", normalizedName, client),
+    adminFieldExists("access_code", normalizedCode, client)
+  ]);
+  return nameExists || codeExists ? "partial" : "none";
+}
+
+async function isAdminCodeReserved(code) {
+  if (!isSupabaseConfigured()) return false;
+  const client = getSupabaseClient();
+  if (!client) return false;
+  const normalizedCode = code.trim();
+  if (!normalizedCode) return false;
+  const [usernameMatch, codeMatch] = await Promise.all([
+    adminFieldExists("username", normalizedCode, client),
+    adminFieldExists("access_code", normalizedCode, client)
+  ]);
+  return usernameMatch || codeMatch;
 }
 
 function toSnakeCaseField(field) {
@@ -821,7 +890,8 @@ async function handleLogin(e) {
   const name = document.getElementById("user-name").value.trim();
   const code = document.getElementById("access-code").value.trim();
 
-  if (name === ADMIN_USER && (code === ADMIN_CODE || code === name)) {
+  const adminStatus = await getAdminLoginStatus(name, code);
+  if (adminStatus === "match") {
     isAdmin = true;
     currentUser = { name: "Administrador", role: "admin" };
     mostrarMenuUsuario();
@@ -831,7 +901,7 @@ async function handleLogin(e) {
     return;
   }
 
-  if (code === ADMIN_CODE || name === ADMIN_USER) {
+  if (adminStatus === "partial") {
     showToast("Credenciales de administrador incorrectas");
     return;
   }
@@ -990,7 +1060,7 @@ async function actualizarClaveAcceso(event) {
   }
 
   const normalizedCode = newCode.toLowerCase();
-  if (normalizedCode === ADMIN_CODE.toLowerCase() || normalizedCode === ADMIN_USER.toLowerCase()) {
+  if (await isAdminCodeReserved(normalizedCode)) {
     showToast("Esa clave está reservada. Usa otra.");
     return;
   }
