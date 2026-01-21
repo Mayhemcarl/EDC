@@ -7,12 +7,14 @@ import {
   getFirestore,
   onSnapshot,
   setDoc,
-  writeBatch
+  writeBatch,
+  serverTimestamp,
+  addDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const FIREBASE_CONFIG = {
  apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
-  authDomain: "elemental-dojo-curico.firebaseapp.com",
+  authDomain: "elemental-dojo-curico.web.app",
   projectId: "elemental-dojo-curico",
   storageBucket: "elemental-dojo-curico.firebasestorage.app",
   messagingSenderId: "39532293146",
@@ -124,9 +126,10 @@ let cachedStudents = [];
 let cachedTrialRequests = [];
 let cachedEnrollments = {};
 let adminStudentsFilter = "Jiu Jitsu";
+let firebaseDisabled = false;
 
 function isFirebaseConfigured() {
-  return Object.values(FIREBASE_CONFIG).every(value =>
+  return !firebaseDisabled && Object.values(FIREBASE_CONFIG).every(value =>
     typeof value === "string" && value.trim() !== "" && !value.includes("your-")
   );
 }
@@ -140,6 +143,14 @@ function getFirebaseDb() {
     firebaseDb = getFirestore(app);
   }
   return firebaseDb;
+}
+
+function handleFirestoreError(error, context = "") {
+  console.error(`Firebase error${context ? ` (${context})` : ""}:`, error);
+  if (error?.code === "permission-denied") {
+    firebaseDisabled = true;
+    showToast("Permisos de Firebase insuficientes. Revisa las reglas y despliegue.");
+  }
 }
 
 function openModal(id) { document.getElementById(id).classList.add("open"); }
@@ -162,37 +173,46 @@ async function loadStudents() {
     return [...DEFAULT_STUDENTS];
   }
   const db = getFirebaseDb();
-  const snapshot = await getDocs(collection(db, "students"));
-  if (snapshot.empty) {
-    await saveStudents(DEFAULT_STUDENTS);
-    return [...DEFAULT_STUDENTS];
+  try {
+    const snapshot = await getDocs(collection(db, "students"));
+    if (snapshot.empty) {
+      await saveStudents(DEFAULT_STUDENTS);
+      return [...DEFAULT_STUDENTS];
+    }
+    const students = snapshot.docs.map(docSnap => docSnap.data());
+    const { normalized, updated } = ensureStudentUids(students);
+    if (updated) {
+      await saveStudents(normalized);
+    }
+    return normalized;
+  } catch (error) {
+    handleFirestoreError(error, "loadStudents");
+    return cachedStudents.length ? [...cachedStudents] : [...DEFAULT_STUDENTS];
   }
-  const students = snapshot.docs.map(docSnap => docSnap.data());
-  const { normalized, updated } = ensureStudentUids(students);
-  if (updated) {
-    await saveStudents(normalized);
-  }
-  return normalized;
 }
 
 async function syncCollectionById(collectionName, items) {
   const db = getFirebaseDb();
   const colRef = collection(db, collectionName);
-  const snapshot = await getDocs(colRef);
-  const batch = writeBatch(db);
-  const incomingIds = new Set(items.map(item => item.id));
+  try {
+    const snapshot = await getDocs(colRef);
+    const batch = writeBatch(db);
+    const incomingIds = new Set(items.map(item => item.id));
 
-  snapshot.forEach(docSnap => {
-    if (!incomingIds.has(docSnap.id)) {
-      batch.delete(docSnap.ref);
-    }
-  });
+    snapshot.forEach(docSnap => {
+      if (!incomingIds.has(docSnap.id)) {
+        batch.delete(docSnap.ref);
+      }
+    });
 
-  items.forEach(item => {
-    batch.set(doc(db, collectionName, item.id), item);
-  });
+    items.forEach(item => {
+      batch.set(doc(db, collectionName, item.id), item);
+    });
 
-  await batch.commit();
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, `syncCollection:${collectionName}`);
+  }
 }
 
 async function saveStudents(students) {
@@ -209,11 +229,16 @@ async function loadTrialRequests() {
     return [];
   }
   const db = getFirebaseDb();
-  const snapshot = await getDocs(collection(db, "trial_requests"));
-  if (snapshot.empty) {
-    return [];
+  try {
+    const snapshot = await getDocs(collection(db, "trial_requests"));
+    if (snapshot.empty) {
+      return [];
+    }
+    return snapshot.docs.map(docSnap => docSnap.data());
+  } catch (error) {
+    handleFirestoreError(error, "loadTrialRequests");
+    return cachedTrialRequests.length ? [...cachedTrialRequests] : [];
   }
-  return snapshot.docs.map(docSnap => docSnap.data());
 }
 
 async function saveTrialRequests(requests) {
@@ -318,12 +343,17 @@ async function getCurrentWeekEnrollments() {
     return {};
   }
   const db = getFirebaseDb();
-  const snapshot = await getDoc(doc(db, "weekly_enrollments", weekKey));
-  if (!snapshot.exists()) {
-    return {};
+  try {
+    const snapshot = await getDoc(doc(db, "weekly_enrollments", weekKey));
+    if (!snapshot.exists()) {
+      return {};
+    }
+    const data = snapshot.data();
+    return data?.enrollments || {};
+  } catch (error) {
+    handleFirestoreError(error, "weekly_enrollments:read");
+    return cachedEnrollments || {};
   }
-  const data = snapshot.data();
-  return data?.enrollments || {};
 }
 
 async function setCurrentWeekEnrollments(currentWeek) {
@@ -333,8 +363,13 @@ async function setCurrentWeekEnrollments(currentWeek) {
     return;
   }
   const db = getFirebaseDb();
-  await setDoc(doc(db, "weekly_enrollments", weekKey), { enrollments: currentWeek });
-  cachedEnrollments = currentWeek;
+  try {
+    await setDoc(doc(db, "weekly_enrollments", weekKey), { enrollments: currentWeek });
+    cachedEnrollments = currentWeek;
+  } catch (error) {
+    handleFirestoreError(error, "weekly_enrollments:write");
+    cachedEnrollments = currentWeek;
+  }
 }
 
 async function hydrateScheduleEnrollments() {
@@ -513,6 +548,20 @@ async function submitTrial(e) {
     };
 
     if (isFirebaseConfigured()) {
+      try {
+        const db = getFirebaseDb();
+        await setDoc(doc(db, "trial_requests", newRequest.id), newRequest);
+        cachedTrialRequests = [newRequest, ...cachedTrialRequests];
+      } catch (error) {
+        handleFirestoreError(error, "trial_requests:write");
+        if (!isFirebaseConfigured()) {
+          const requests = cachedTrialRequests.length ? cachedTrialRequests : await loadTrialRequests();
+          requests.unshift(newRequest);
+          await saveTrialRequests(requests);
+        } else {
+          throw error;
+        }
+      }
       const db = getFirebaseDb();
       await setDoc(doc(db, "trial_requests", newRequest.id), newRequest);
       cachedTrialRequests = [newRequest, ...cachedTrialRequests];
@@ -1253,6 +1302,31 @@ function setAdminStudentsFilter(discipline) {
   cargarAlumnosAdmin();
 }
 
+function updateAdminStudentFilterCounts(students) {
+  const counts = {
+    "Jiu Jitsu": 0,
+    "Judo": 0,
+    "Kick Boxing": 0
+  };
+
+  students.forEach(student => {
+    if (student.discipline === "Jiu Jitsu" || student.discipline === "Jiu Jitsu Kid") {
+      counts["Jiu Jitsu"] += 1;
+      return;
+    }
+    if (counts[student.discipline] !== undefined) {
+      counts[student.discipline] += 1;
+    }
+  });
+
+  document.querySelectorAll(".admin-students-filters button").forEach(button => {
+    const filterValue = button.getAttribute("data-filter");
+    const baseLabel = button.getAttribute("data-label") || button.textContent;
+    const count = counts[filterValue] ?? 0;
+    button.textContent = `${baseLabel} (${count})`;
+  });
+}
+
 function getPlanOptionsForDiscipline(discipline) {
   const plans = DISCIPLINE_PLANS[discipline] || [];
   if (plans.length === 0) {
@@ -1412,9 +1486,12 @@ async function cargarAlumnosAdmin() {
   container.innerHTML = "";
 
   if (students.length === 0) {
+    updateAdminStudentFilterCounts([]);
     container.innerHTML = '<p class="muted">Sin alumnos registrados.</p>';
     return;
   }
+
+  updateAdminStudentFilterCounts(students);
 
   const filterMap = {
     "Jiu Jitsu": ["Jiu Jitsu", "Jiu Jitsu Kid"],
@@ -1568,24 +1645,71 @@ async function registrarNuevoAlumno(e) {
   await cargarAlumnosNoPagadosAdmin();
 }
 
+function getMonthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function buildDefaultMeta(now = new Date()) {
+  return {
+    id: META_ID,                 // "system"
+    lastWeeklyReset: "",         // weekKey último reseteo
+    lastPaymentResetMonth: "",   // "YYYY-MM"
+    lastPaymentOverdueMonth: "", // "YYYY-MM"
+    createdAt: now.toISOString(), // opcional (si no quiere Timestamp)
+    updatedAt: now.toISOString()
+  };
+}
+
 async function loadMeta() {
+  // Si Firebase no está configurado, igual devolvemos un objeto completo
   if (!isFirebaseConfigured()) {
-    return { id: META_ID };
+    return buildDefaultMeta();
   }
+
   const db = getFirebaseDb();
-  const snapshot = await getDoc(doc(db, "meta", META_ID));
-  if (!snapshot.exists()) {
-    return { id: META_ID };
+  const ref = doc(db, "meta", META_ID);
+
+  try {
+    const snap = await getDoc(ref);
+
+    // Si no existe, lo creamos (esto crea "meta" y el doc "system")
+    if (!snap.exists()) {
+      const initial = buildDefaultMeta();
+      await setDoc(ref, initial);
+      return initial;
+    }
+
+    // Si existe, devolvemos asegurando defaults (por si faltan campos)
+    const data = snap.data() || {};
+    return {
+      ...buildDefaultMeta(),
+      ...data,
+      id: META_ID
+    };
+  } catch (error) {
+    handleFirestoreError(error, "loadMeta");
+    return buildDefaultMeta();
   }
-  return snapshot.data();
 }
 
 async function saveMeta(meta) {
-  if (!isFirebaseConfigured()) {
-    return;
-  }
+  if (!isFirebaseConfigured()) return;
+
   const db = getFirebaseDb();
-  await setDoc(doc(db, "meta", META_ID), meta);
+  try {
+    const ref = doc(db, "meta", META_ID);
+    await setDoc(
+      ref,
+      {
+        ...meta,
+        id: META_ID,
+        updatedAt: new Date().toISOString()
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, "saveMeta");
+  }
 }
 
 async function runWeeklyReset(meta) {
@@ -1663,57 +1787,69 @@ function listenToRealtimeUpdates() {
   const db = getFirebaseDb();
   const weekKey = getWeekKey();
 
-  onSnapshot(collection(db, "students"), async snapshot => {
-    const students = snapshot.docs.map(docSnap => docSnap.data());
-    const { normalized, updated } = ensureStudentUids(students);
-    if (updated) {
-      await saveStudents(normalized);
-      return;
-    }
-    cachedStudents = normalized;
-    refreshCurrentUser(normalized);
-    if (isAdmin) {
-      await cargarResumenAdmin();
-      await cargarAlumnosAdmin();
-      await cargarAlumnosNoPagadosAdmin();
-    }
-    if (isModalOpen("profile-modal")) {
-      abrirPerfil();
-    }
-    if (isModalOpen("payment-modal")) {
-      cargarEstadoPagoUsuario();
-    }
-    if (isModalOpen("calendar-modal")) {
-      await renderCalendar();
-    }
-    if (isModalOpen("my-classes-modal")) {
-      await renderMisClases();
-    }
-  });
+  onSnapshot(
+    collection(db, "students"),
+    async snapshot => {
+      const students = snapshot.docs.map(docSnap => docSnap.data());
+      const { normalized, updated } = ensureStudentUids(students);
+      if (updated) {
+        await saveStudents(normalized);
+        return;
+      }
+      cachedStudents = normalized;
+      refreshCurrentUser(normalized);
+      if (isAdmin) {
+        await cargarResumenAdmin();
+        await cargarAlumnosAdmin();
+        await cargarAlumnosNoPagadosAdmin();
+      }
+      if (isModalOpen("profile-modal")) {
+        abrirPerfil();
+      }
+      if (isModalOpen("payment-modal")) {
+        cargarEstadoPagoUsuario();
+      }
+      if (isModalOpen("calendar-modal")) {
+        await renderCalendar();
+      }
+      if (isModalOpen("my-classes-modal")) {
+        await renderMisClases();
+      }
+    },
+    error => handleFirestoreError(error, "students:onSnapshot")
+  );
 
-  onSnapshot(collection(db, "trial_requests"), async snapshot => {
-    cachedTrialRequests = snapshot.docs.map(docSnap => docSnap.data());
-    if (isAdmin && isModalOpen("admin-trial-modal")) {
-      await cargarSolicitudesTrialAdmin();
-    }
-  });
+  onSnapshot(
+    collection(db, "trial_requests"),
+    async snapshot => {
+      cachedTrialRequests = snapshot.docs.map(docSnap => docSnap.data());
+      if (isAdmin && isModalOpen("admin-trial-modal")) {
+        await cargarSolicitudesTrialAdmin();
+      }
+    },
+    error => handleFirestoreError(error, "trial_requests:onSnapshot")
+  );
 
-  onSnapshot(doc(db, "weekly_enrollments", weekKey), async snapshot => {
-    const data = snapshot.exists() ? snapshot.data() : null;
-    const enrollments = data?.enrollments || {};
-    applyEnrollmentsToSchedule(enrollments);
-    if (isModalOpen("calendar-modal")) {
-      await renderCalendar();
-    }
-    if (isModalOpen("my-classes-modal")) {
-      await renderMisClases();
-    }
-    if (isAdmin) {
-      await cargarClasesAgendadasAdmin();
-      await cargarClasesPorDisciplinaAdmin();
-      await cargarAlumnosAdmin();
-    }
-  });
+  onSnapshot(
+    doc(db, "weekly_enrollments", weekKey),
+    async snapshot => {
+      const data = snapshot.exists() ? snapshot.data() : null;
+      const enrollments = data?.enrollments || {};
+      applyEnrollmentsToSchedule(enrollments);
+      if (isModalOpen("calendar-modal")) {
+        await renderCalendar();
+      }
+      if (isModalOpen("my-classes-modal")) {
+        await renderMisClases();
+      }
+      if (isAdmin) {
+        await cargarClasesAgendadasAdmin();
+        await cargarClasesPorDisciplinaAdmin();
+        await cargarAlumnosAdmin();
+      }
+    },
+    error => handleFirestoreError(error, "weekly_enrollments:onSnapshot")
+  );
 }
 
 async function init() {
