@@ -1,26 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  getFirestore,
-  onSnapshot,
-  setDoc,
-  writeBatch,
-  serverTimestamp,
-  addDoc
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-const FIREBASE_CONFIG = {
- apiKey: "AIzaSyCdp2xekXWXGorVDXtGwzC73N-F4_Ig4gU",
-  authDomain: "elemental-dojo-curico.web.app",
-  projectId: "elemental-dojo-curico",
-  storageBucket: "elemental-dojo-curico.firebasestorage.app",
-  messagingSenderId: "39532293146",
-  appId: "1:39532293146:web:0c44ace849aeed5f5335a3"
-};
-
+  const firebaseDb = getFirestore(app);
 let firebaseDb = null;
 
 // Colecciones esperadas en Firestore:
