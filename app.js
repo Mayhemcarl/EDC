@@ -205,19 +205,23 @@ async function updateDocumentFields(collectionName, documentId, fields) {
   }
 }
 
-async function getDocumentById(collectionName, documentId) {
+async function getMetaDocument() {
   const db = getFirebaseDb();
   if (!db) {
     return null;
   }
   try {
-    const snapshot = await getDoc(doc(db, collectionName, documentId));
+    const snapshot = await getDoc(doc(db, "meta", META_ID));
     return snapshot.exists() ? snapshot.data() : null;
   } catch (error) {
-    handleFirestoreError(error, `${collectionName}:get`);
+    if (error?.code === "permission-denied") {
+      return null;
+    }
+    handleFirestoreError(error, "meta:get");
     return null;
   }
 }
+
 
 function openModal(id) { document.getElementById(id).classList.add("open"); }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
@@ -1785,7 +1789,7 @@ async function loadMeta() {
   if (!db) {
     return buildDefaultMeta();
   }
-  const data = await getDocumentById("meta", META_ID);
+  const data = await getMetaDocument();
 
   // Si no existe, devolvemos el objeto por defecto sin forzar escritura
   if (!data) {
