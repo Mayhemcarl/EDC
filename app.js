@@ -672,8 +672,23 @@ function applyEnrollmentsToSchedule(weekEnrollments) {
   });
 }
 
-async function removeStudentFromWeeklyEnrollments(studentName) {
-  if (!studentName) return;
+function isEnrollmentMatch(enrollment, target) {
+  if (!enrollment || !target) return false;
+  if (target.studentId && enrollment.studentId) {
+    return enrollment.studentId === target.studentId;
+  }
+  if (target.uid && enrollment.uid) {
+    return enrollment.uid === target.uid;
+  }
+  if (target.name) {
+    return enrollment.name === target.name;
+  }
+  return false;
+}
+
+async function removeStudentFromWeeklyEnrollments(target) {
+  if (!target) return;
+  const criteria = typeof target === "string" ? { name: target } : target;
   const currentWeek = (cachedEnrollments && Object.keys(cachedEnrollments).length)
     ? cachedEnrollments
     : await getCurrentWeekEnrollments();
@@ -684,7 +699,7 @@ async function removeStudentFromWeeklyEnrollments(studentName) {
     if (!Array.isArray(enrollments)) {
       return;
     }
-    const filtered = enrollments.filter(enrolled => enrolled.name !== studentName);
+    const filtered = enrollments.filter(enrolled => !isEnrollmentMatch(enrolled, criteria));
     if (filtered.length !== enrollments.length) {
       updatedWeek[classId] = filtered;
       updated = true;
@@ -957,6 +972,7 @@ async function handleLogin(e) {
     } catch (error) {
       console.error("Error cargando clases para admin:", error);
     }
+    cachedTrialRequests = await loadTrialRequests();
     updateAdminTrialButtonState();
     return;
   }
@@ -1070,7 +1086,8 @@ function updateAdminTrialButtonState() {
   const hasTrialScheduled = scheduleData.some(cls =>
     Array.isArray(cls.enrolled) && cls.enrolled.some(enrolled => enrolled.plan === "PRUEBA")
   );
-  button.classList.toggle("has-trial-alert", hasTrialScheduled);
+  const hasTrialRequests = cachedTrialRequests.length > 0;
+  button.classList.toggle("has-trial-alert", hasTrialScheduled || hasTrialRequests);
 }
 
 function getUserWeeklyCount(user) {
@@ -1477,7 +1494,12 @@ async function toggleReservation(classId) {
       showToast("La clase está llena.");
       return;
     }
-    cls.enrolled.push({ name: currentUser.name, plan: currentUser.plan });
+    cls.enrolled.push({
+      name: currentUser.name,
+      plan: currentUser.plan,
+      uid: currentUser.uid || null,
+      studentId: currentUser.id || null
+    });
     showToast(`¡Reservado para ${cls.class}!`);
   }
 
@@ -1589,15 +1611,44 @@ async function cargarClasesAgendadasAdmin() {
     dayCard.innerHTML = `<h4>${day}</h4>`;
 
     dayClasses.forEach(cls => {
-      const attendees = cls.enrolled.map(u => u.name).join(", ") || "Sin alumnos";
       const attendeeCount = cls.enrolled.length;
       const item = document.createElement("div");
       item.className = "admin-class-item";
       item.innerHTML = `
         <strong>${cls.time} - ${cls.class}</strong>
         <span class="muted">${cls.instructor}</span><br>
-        <span>Alumnos (${attendeeCount}): ${attendees}</span>
+        <span>Alumnos (${attendeeCount})</span>
       `;
+
+      const attendeeList = document.createElement("div");
+      attendeeList.className = "admin-attendees";
+
+      if (!Array.isArray(cls.enrolled) || cls.enrolled.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "muted";
+        empty.textContent = "Sin alumnos";
+        attendeeList.appendChild(empty);
+      } else {
+        cls.enrolled.forEach(enrolled => {
+          const row = document.createElement("div");
+          row.className = "admin-attendee";
+          const label = document.createElement("span");
+          const isTrial = enrolled?.plan === "PRUEBA";
+          label.textContent = `${enrolled?.name || "Alumno"}${isTrial ? " (Prueba)" : ""}`;
+          row.appendChild(label);
+          if (isTrial) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn-overdue btn-trial-cancel";
+            btn.textContent = "Cancelar prueba";
+            btn.addEventListener("click", () => cancelarClasePruebaAdmin(cls.id, enrolled));
+            row.appendChild(btn);
+          }
+          attendeeList.appendChild(row);
+        });
+      }
+
+      item.appendChild(attendeeList);
       dayCard.appendChild(item);
     });
 
@@ -1647,6 +1698,7 @@ async function agregarAlumnoDesdeTrial(requestId) {
   notifyStudentAccess(newStudent);
   await cargarSolicitudesTrialAdmin();
   await cargarAlumnosAdmin();
+  updateAdminTrialButtonState();
 }
 
 async function eliminarSolicitudTrial(requestId) {
@@ -1658,6 +1710,47 @@ async function eliminarSolicitudTrial(requestId) {
   await saveTrialRequests(updated);
   showToast("Solicitud eliminada.");
   await cargarSolicitudesTrialAdmin();
+  updateAdminTrialButtonState();
+}
+
+async function cancelarClasePruebaAdmin(classId, enrollment) {
+  if (!enrollment || enrollment.plan !== "PRUEBA") {
+    return;
+  }
+  const studentName = enrollment.name || "este alumno";
+  if (!confirm(`¿Cancelar la clase de prueba de ${studentName}?`)) {
+    return;
+  }
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  const matchedStudent = students.find(student =>
+    (enrollment.studentId && student.id === enrollment.studentId)
+    || (enrollment.uid && student.uid === enrollment.uid)
+    || student.name === enrollment.name
+  );
+  if (!matchedStudent) {
+    showToast("Alumno no encontrado.");
+    return;
+  }
+  if (matchedStudent.plan !== "PRUEBA") {
+    showToast("El alumno ya no está en clase de prueba.");
+    return;
+  }
+  const updated = students.filter(student => student.id !== matchedStudent.id);
+  await saveStudents(updated);
+  await removeStudentFromWeeklyEnrollments({
+    name: matchedStudent.name,
+    uid: matchedStudent.uid,
+    studentId: matchedStudent.id
+  });
+  await cargarClasesAgendadasAdmin();
+  await cargarResumenAdmin();
+  await cargarAlumnosAdmin();
+  await cargarAlumnosNoPagadosAdmin();
+  updateAdminTrialButtonState();
+  if (classId && cachedEnrollments?.[classId]) {
+    updateScheduleButtonState();
+  }
+  showToast("Clase de prueba cancelada y registro eliminado.");
 }
 
 async function cargarPlanClasesAdmin(discipline) {
@@ -2323,6 +2416,7 @@ function listenToRealtimeUpdates() {
         if (isAdmin && isModalOpen("admin-trial-modal")) {
           await cargarSolicitudesTrialAdmin();
         }
+        updateAdminTrialButtonState();
       }
     )
     .subscribe(status => {
