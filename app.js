@@ -6,8 +6,12 @@ const SUPABASE_URL = (typeof window !== "undefined" && window.NEXT_PUBLIC_SUPABA
 const SUPABASE_PUBLISHABLE_KEY = (typeof window !== "undefined" && window.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY)
   || (typeof window !== "undefined" && window.SUPABASE_PUBLISHABLE_KEY)
   || "sb_publishable_kQTdaGFmqgWxVXVc9eAXgA_9Zhs631J";
+const FIREBASE_CONFIG = (typeof window !== "undefined" && window.FIREBASE_CONFIG)
+  ? window.FIREBASE_CONFIG
+  : null;
 
 let supabaseClient = null;
+let firebaseAuthApi = null;
 
 // Tablas esperadas en Supabase:
 // - students (id, uid, name, discipline, plan, payment_status, phone, email, payment_due, access_code, weekly_limit_override, class_day, class_time)
@@ -108,6 +112,14 @@ let cachedTrialRequests = [];
 let cachedEnrollments = {};
 let adminStudentsFilter = "Jiu Jitsu";
 let supabaseDisabled = false;
+let lastEnrollmentSnapshot = {};
+
+const NOTIFICATION_STORAGE_KEY = "edc.notifications";
+const NOTIFICATION_EVENT_KEY = "edc.notification-events";
+let notificationStore = {
+  items: [],
+  unreadCount: 0
+};
 
 function isSupabaseConfigured() {
   return !supabaseDisabled
@@ -417,11 +429,230 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove("show"), 3000);
 }
 
+function loadNotificationEvents() {
+  const stored = localStorage.getItem(NOTIFICATION_EVENT_KEY);
+  if (!stored) return {};
+  try {
+    return JSON.parse(stored) || {};
+  } catch (error) {
+    console.warn("No se pudieron leer eventos de notificación.", error);
+    return {};
+  }
+}
+
+function saveNotificationEvents(events) {
+  localStorage.setItem(NOTIFICATION_EVENT_KEY, JSON.stringify(events));
+}
+
+function registerNotificationEvent(eventKey) {
+  if (!eventKey) return false;
+  const events = loadNotificationEvents();
+  if (events[eventKey]) return false;
+  events[eventKey] = new Date().toISOString();
+  saveNotificationEvents(events);
+  return true;
+}
+
+function loadNotifications() {
+  const stored = localStorage.getItem(NOTIFICATION_STORAGE_KEY);
+  if (!stored) {
+    notificationStore = { items: [], unreadCount: 0 };
+    return;
+  }
+  try {
+    const parsed = JSON.parse(stored);
+    const items = Array.isArray(parsed?.items) ? parsed.items : [];
+    notificationStore = {
+      items,
+      unreadCount: items.filter(item => item.unread).length
+    };
+  } catch (error) {
+    console.warn("No se pudieron leer notificaciones.", error);
+    notificationStore = { items: [], unreadCount: 0 };
+  }
+}
+
+function saveNotifications() {
+  localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(notificationStore));
+}
+
+function updateNotificationBadge() {
+  const badge = document.getElementById("notification-badge");
+  if (!badge) return;
+  const unreadCount = notificationStore.items.filter(item =>
+    item.unread && shouldDisplayNotification(item.audience)
+  ).length;
+  badge.textContent = unreadCount;
+  badge.classList.toggle("hidden", unreadCount === 0);
+}
+
+function renderNotificationList() {
+  const list = document.getElementById("notifications-list");
+  if (!list) return;
+  const visibleItems = notificationStore.items.filter(item => shouldDisplayNotification(item.audience));
+  if (!visibleItems.length) {
+    list.innerHTML = '<p class="notification-empty">No hay notificaciones todavía.</p>';
+    return;
+  }
+  list.innerHTML = "";
+  visibleItems
+    .slice()
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .forEach(item => {
+      const card = document.createElement("div");
+      card.className = `notification-item${item.unread ? " unread" : ""}`;
+      card.innerHTML = `
+        <div class="notification-title">${item.title}</div>
+        <p>${item.message}</p>
+        <div class="notification-meta">${item.createdAt ? new Date(item.createdAt).toLocaleString("es-CL") : ""}</div>
+      `;
+      list.appendChild(card);
+    });
+}
+
+function showPopupNotification(item) {
+  const container = document.getElementById("notification-popups");
+  if (!container) return;
+  const card = document.createElement("div");
+  card.className = `notification-card ${item.level || "info"}`;
+  card.innerHTML = `
+    <div class="notification-title">${item.title}</div>
+    <div>${item.message}</div>
+    <div class="notification-meta">${new Date(item.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</div>
+    <div class="notification-actions">
+      <button class="btn-notification-primary" type="button">Ver</button>
+      <button class="btn-notification-secondary" type="button">Cerrar</button>
+    </div>
+  `;
+  const [viewButton, closeButton] = card.querySelectorAll("button");
+  if (viewButton) {
+    viewButton.addEventListener("click", () => {
+      abrirNotificaciones();
+      card.remove();
+    });
+  }
+  if (closeButton) {
+    closeButton.addEventListener("click", () => card.remove());
+  }
+  container.appendChild(card);
+  setTimeout(() => {
+    if (card.isConnected) card.remove();
+  }, 8000);
+}
+
+function shouldDisplayNotification(audience) {
+  if (!currentUser) return false;
+  if (audience === "admin") return isAdmin;
+  if (audience === "member") return currentUser.role === "member";
+  return true;
+}
+
+function pushNotification({ title, message, level = "info", audience = "all" }) {
+  const item = {
+    id: `n-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    title,
+    message,
+    level,
+    audience,
+    createdAt: new Date().toISOString(),
+    unread: true
+  };
+  notificationStore.items.unshift(item);
+  notificationStore.unreadCount = notificationStore.items.filter(entry => entry.unread).length;
+  saveNotifications();
+  updateNotificationBadge();
+  if (shouldDisplayNotification(audience)) {
+    showPopupNotification(item);
+  }
+}
+
+function abrirNotificaciones() {
+  renderNotificationList();
+  openModal("notifications-modal");
+}
+
+function marcarNotificacionesLeidas() {
+  notificationStore.items = notificationStore.items.map(item => {
+    if (!shouldDisplayNotification(item.audience)) {
+      return item;
+    }
+    return { ...item, unread: false };
+  });
+  notificationStore.unreadCount = notificationStore.items.filter(item => item.unread).length;
+  saveNotifications();
+  updateNotificationBadge();
+  renderNotificationList();
+}
+
 function openTrialModal() {
   openModal("trial-modal");
   updateTrialScheduleOptions();
 }
 function openLoginModal() { openModal("login-modal"); }
+
+async function loadFirebaseModules() {
+  const [appModule, authModule] = await Promise.all([
+    import("https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js"),
+    import("https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js")
+  ]);
+  return { appModule, authModule };
+}
+
+async function initFirebaseAuth() {
+  const googleButton = document.getElementById("btn-google-login");
+  if (!googleButton) return;
+  if (!FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
+    googleButton.disabled = true;
+    googleButton.title = "Configura Firebase para habilitar Google.";
+    return;
+  }
+
+  const { appModule, authModule } = await loadFirebaseModules();
+  const app = appModule.initializeApp(FIREBASE_CONFIG);
+  const auth = authModule.getAuth(app);
+  const provider = new authModule.GoogleAuthProvider();
+
+  firebaseAuthApi = {
+    auth,
+    provider,
+    signInWithPopup: authModule.signInWithPopup,
+    signOut: authModule.signOut
+  };
+
+  googleButton.addEventListener("click", async () => {
+    await iniciarSesionGoogle();
+  });
+}
+
+async function iniciarSesionGoogle() {
+  if (!firebaseAuthApi) {
+    showToast("Google Auth no está disponible.");
+    return;
+  }
+  const { auth, provider, signInWithPopup } = firebaseAuthApi;
+  const result = await signInWithPopup(auth, provider);
+  const user = result?.user;
+  const email = user?.email || "";
+
+  if (!email) {
+    showToast("No se pudo obtener tu correo desde Google.");
+    return;
+  }
+
+  const student = await getStudentByEmail(email);
+  if (!student) {
+    showToast("Tu correo no está registrado. Contacta al administrador.");
+    return;
+  }
+
+  currentUser = { ...student, role: "member" };
+  isAdmin = false;
+  mostrarMenuUsuario();
+  updatePublicButtons();
+  closeModal("login-modal");
+  await abrirCalendario();
+  onUserLogin();
+}
 
 async function loadStudents() {
   if (!isSupabaseConfigured()) {
@@ -619,6 +850,56 @@ function isReservationClosed(cls, now = new Date()) {
   return diffMs <= MIN_RESERVATION_NOTICE_MINUTES * 60 * 1000;
 }
 
+function detectAdminEnrollmentChanges(previousEnrollments, nextEnrollments) {
+  if (!isAdmin) return;
+  scheduleData.forEach(cls => {
+    const previous = previousEnrollments?.[cls.id] || [];
+    const next = nextEnrollments?.[cls.id] || [];
+    if (next.length > previous.length) {
+      const newNames = next
+        .filter(enrolled => !previous.some(prev => isEnrollmentMatch(prev, enrolled)))
+        .map(enrolled => enrolled.name || "Alumno")
+        .join(", ");
+      pushNotification({
+        title: "Nueva inscripción",
+        message: `${newNames || "Un alumno"} se inscribió a ${cls.class} (${cls.day} ${cls.time}).`,
+        level: "success",
+        audience: "admin"
+      });
+    }
+  });
+}
+
+function checkAdminUpcomingClassNotifications() {
+  if (!isAdmin) return;
+  const now = new Date();
+  scheduleData.forEach(cls => {
+    const classDate = getClassStartDate(cls, now);
+    const diffMs = classDate - now;
+    if (diffMs <= 0 || diffMs > MIN_RESERVATION_NOTICE_MINUTES * 60 * 1000) {
+      return;
+    }
+    const weekKey = getWeekKey(now);
+    const statusKey = cls.enrolled.length > 0 ? "con-alumnos" : "sin-alumnos";
+    const eventKey = `admin:${weekKey}:${cls.id}:${statusKey}`;
+    if (!registerNotificationEvent(eventKey)) {
+      return;
+    }
+    const title = cls.enrolled.length > 0
+      ? "Clase con alumnos inscritos"
+      : "Clase sin inscritos";
+    const message = cls.enrolled.length > 0
+      ? `La clase ${cls.class} del ${cls.day} a las ${cls.time} tiene ${cls.enrolled.length} alumnos.`
+      : `La clase ${cls.class} del ${cls.day} a las ${cls.time} no tiene inscritos.`;
+    pushNotification({
+      title,
+      message,
+      level: cls.enrolled.length > 0 ? "info" : "warning",
+      audience: "admin"
+    });
+  });
+}
+
 async function getCurrentWeekEnrollments() {
   const weekKey = getWeekKey();
   if (!isSupabaseConfigured()) {
@@ -667,6 +948,7 @@ async function hydrateScheduleEnrollments() {
 
 function applyEnrollmentsToSchedule(weekEnrollments) {
   cachedEnrollments = weekEnrollments;
+  lastEnrollmentSnapshot = { ...weekEnrollments };
   scheduleData.forEach(cls => {
     cls.enrolled = weekEnrollments[cls.id] || [];
   });
@@ -909,6 +1191,12 @@ async function submitTrial(e) {
     if (isAdmin) {
       await cargarSolicitudesTrialAdmin();
     }
+    pushNotification({
+      title: "Solicitud de clase de prueba",
+      message: `${newRequest.nombre} pidió una clase de prueba de ${newRequest.disciplina}.`,
+      level: "info",
+      audience: "admin"
+    });
   } catch (error) {
     console.error("Error guardando solicitud:", error);
     showToast("No se pudo guardar la solicitud.");
@@ -954,6 +1242,28 @@ async function getStudentsByName(name) {
   );
 }
 
+async function getStudentByEmail(email) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  if (isSupabaseConfigured()) {
+    const client = getSupabaseClient();
+    if (client) {
+      const { data, error } = await client
+        .from("students")
+        .select("*")
+        .ilike("email", normalizedEmail)
+        .maybeSingle();
+      if (!error && data) {
+        return mapStudentFromRecord(data);
+      }
+    }
+  }
+
+  const students = cachedStudents.length ? cachedStudents : await loadStudents();
+  return students.find(student => (student.email || "").trim().toLowerCase() === normalizedEmail) || null;
+}
+
 async function handleLogin(e) {
   e.preventDefault();
   const name = document.getElementById("user-name").value.trim();
@@ -974,6 +1284,7 @@ async function handleLogin(e) {
     }
     cachedTrialRequests = await loadTrialRequests();
     updateAdminTrialButtonState();
+    onUserLogin();
     return;
   }
 
@@ -1011,6 +1322,7 @@ async function handleLogin(e) {
   updatePublicButtons();
   closeModal("login-modal");
   await abrirCalendario();
+  onUserLogin();
 }
 
 function isOpenMatEligible(user) {
@@ -1090,6 +1402,44 @@ function updateAdminTrialButtonState() {
   button.classList.toggle("has-trial-alert", hasTrialScheduled || hasTrialRequests);
 }
 
+function onUserLogin() {
+  loadNotifications();
+  updateNotificationBadge();
+  if (currentUser?.role === "member") {
+    checkPaymentNotifications();
+  }
+  if (currentUser?.role === "admin") {
+    notifyAdminTrialSummary();
+  }
+}
+
+function checkPaymentNotifications() {
+  if (!currentUser || currentUser.role !== "member") return;
+  const status = currentUser.paymentStatus;
+  if (!status || status === "pagado") return;
+  const monthKey = getMonthKey();
+  const eventKey = `payment:${currentUser.id}:${status}:${monthKey}`;
+  if (!registerNotificationEvent(eventKey)) return;
+  const title = status === "vencido" ? "Pago vencido" : "Pago pendiente";
+  const message = status === "vencido"
+    ? "Tu pago está vencido. Debes regularizar para poder reservar."
+    : "Recuerda regularizar tu pago pendiente para evitar bloqueos.";
+  pushNotification({ title, message, level: status === "vencido" ? "danger" : "warning", audience: "member" });
+}
+
+function notifyAdminTrialSummary() {
+  if (!isAdmin) return;
+  if (cachedTrialRequests.length === 0) return;
+  const eventKey = `admin-trials:${getWeekKey()}`;
+  if (!registerNotificationEvent(eventKey)) return;
+  pushNotification({
+    title: "Solicitudes de clase de prueba",
+    message: `Tienes ${cachedTrialRequests.length} solicitudes pendientes de prueba.`,
+    level: "info",
+    audience: "admin"
+  });
+}
+
 function getUserWeeklyCount(user) {
   if (!user) return 0;
   return scheduleData.filter(c =>
@@ -1138,6 +1488,11 @@ function cerrarSesion() {
   updatePublicButtons();
   updateScheduleButtonState();
   showToast("Sesión cerrada");
+  if (firebaseAuthApi?.signOut && firebaseAuthApi?.auth) {
+    firebaseAuthApi.signOut(firebaseAuthApi.auth).catch(error => {
+      console.warn("No se pudo cerrar sesión en Google.", error);
+    });
+  }
 }
 
 async function abrirCalendario() {
@@ -2381,6 +2736,9 @@ function listenToRealtimeUpdates() {
         }
         cachedStudents = normalized;
         refreshCurrentUser(normalized);
+        if (currentUser?.role === "member") {
+          checkPaymentNotifications();
+        }
         if (isAdmin) {
           await cargarResumenAdmin();
           await cargarAlumnosAdmin();
@@ -2436,8 +2794,10 @@ function listenToRealtimeUpdates() {
         filter: `id=eq.${weekKey}`
       },
       payload => {
+        const previous = { ...cachedEnrollments };
         const enrollments = payload?.new?.enrollments || {};
         applyEnrollmentsToSchedule(enrollments);
+        detectAdminEnrollmentChanges(previous, enrollments);
         if (isModalOpen("calendar-modal")) {
           renderCalendar();
         }
@@ -2461,6 +2821,8 @@ function listenToRealtimeUpdates() {
 async function init() {
   renderCards();
   updatePublicButtons();
+  loadNotifications();
+  updateNotificationBadge();
   try {
     if (!isSupabaseConfigured()) {
       showToast("Configura Supabase para cargar datos reales.");
@@ -2481,6 +2843,10 @@ async function init() {
     });
   }
   updatePublicButtons();
+  initFirebaseAuth().catch(error => {
+    console.warn("No se pudo iniciar Firebase Auth.", error);
+  });
+  setInterval(checkAdminUpcomingClassNotifications, 60000);
 
   const disciplineSelect = document.getElementById("new-disciplina");
   if (disciplineSelect) {
@@ -2516,6 +2882,8 @@ window.closeModal = closeModal;
 window.showToast = showToast;
 window.openTrialModal = openTrialModal;
 window.openLoginModal = openLoginModal;
+window.abrirNotificaciones = abrirNotificaciones;
+window.marcarNotificacionesLeidas = marcarNotificacionesLeidas;
 window.openPublicSchedule = openPublicSchedule;
 window.submitTrial = submitTrial;
 window.handleLogin = handleLogin;
