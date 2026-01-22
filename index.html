@@ -290,6 +290,88 @@
         .toast { position: fixed; bottom: 30px; right: 30px; background: var(--secondary); color: var(--white); padding: 15px 25px; border-radius: 4px; transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 3000; border-left:5px solid var(--primary); }
         .toast.show { transform: translateY(0); opacity: 1; }
 
+        .notification-popups {
+            position: fixed;
+            top: 90px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 3001;
+            max-width: min(360px, 90vw);
+        }
+        .notification-card {
+            background: var(--white);
+            color: #333;
+            padding: 14px 16px;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            border-left: 5px solid var(--primary);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            animation: slide-in 0.25s ease;
+        }
+        .notification-card.info { border-left-color: var(--primary); }
+        .notification-card.success { border-left-color: var(--success); }
+        .notification-card.warning { border-left-color: var(--warning); }
+        .notification-card.danger { border-left-color: var(--danger); }
+        .notification-title { font-weight: 800; font-size: 0.95rem; }
+        .notification-meta { font-size: 0.75rem; color: #666; }
+        .notification-actions { display: flex; gap: 8px; }
+        .notification-actions button {
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        .btn-notification-primary { background: var(--primary); color: var(--white); }
+        .btn-notification-secondary { background: #eee; color: #333; }
+        @keyframes slide-in {
+            from { transform: translateY(-8px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .notification-list { display: flex; flex-direction: column; gap: 12px; }
+        .notification-item {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 12px;
+            border-left: 4px solid var(--primary);
+        }
+        .notification-item.unread { background: #fff3e0; }
+        .notification-empty { text-align: center; color: #888; }
+        .notification-badge {
+            background: var(--accent);
+            color: var(--secondary);
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 999px;
+            margin-left: 6px;
+        }
+
+        .btn-google {
+            background: #fff;
+            border: 1px solid #ddd;
+            color: #333;
+            font-weight: 700;
+            padding: 10px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+        .btn-google:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         /* --- Admin --- */
         .admin-panel { padding: 2rem; }
         .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
@@ -440,6 +522,7 @@
             .calendar-wrapper { grid-template-columns: repeat(2, 1fr); }
             .user-menu { left: 10px; right: 10px; bottom: 10px; flex-direction: row; justify-content: space-between; }
             .user-menu button { flex: 1; font-size: 0.75rem; }
+            .notification-popups { left: 10px; right: 10px; top: 80px; }
         }
 
         @media (max-width: 600px) {
@@ -551,6 +634,12 @@
                     </div>
                     <button class="btn-submit">ENTRAR</button>
                 </form>
+                <div style="margin-top:16px;">
+                    <button class="btn-google" id="btn-google-login" type="button">
+                        <i class="fa-brands fa-google"></i> Acceder con Google
+                    </button>
+                    <p class="muted" style="margin-top:8px;">Disponible si Firebase está configurado y tu correo está registrado.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -765,9 +854,27 @@
         </div>
     </div>
 
+    <!-- MODAL: NOTIFICACIONES -->
+    <div class="modal-overlay" id="notifications-modal">
+        <div class="modal" style="max-width:700px;">
+            <div class="modal-header">
+                <h3>Notificaciones</h3>
+                <button class="close-modal" onclick="closeModal('notifications-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+                    <button class="btn-login" onclick="marcarNotificacionesLeidas()">Marcar como leídas</button>
+                </div>
+                <div id="notifications-list" class="notification-list"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="toast">Mensaje</div>
+    <div id="notification-popups" class="notification-popups"></div>
 
     <div id="user-menu" class="user-menu hidden">
+        <button id="btnNotifications" onclick="abrirNotificaciones()"><i class="fas fa-bell"></i> Notificaciones <span id="notification-badge" class="notification-badge hidden">0</span></button>
         <button id="btnMyClasses" onclick="abrirMisClases()"><i class="fas fa-book"></i> Clases</button>
         <button id="btnSchedule" onclick="abrirCalendario()"><i class="fas fa-calendar-plus"></i> Agendar</button>
         <button id="btnPaymentStatus" onclick="abrirEstadoPago()"><i class="fas fa-credit-card"></i> Estado de Pago</button>
