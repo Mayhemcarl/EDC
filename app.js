@@ -952,6 +952,12 @@ async function handleLogin(e) {
     updatePublicButtons();
     closeModal("login-modal");
     showToast("Bienvenido, admin");
+    try {
+      await hydrateScheduleEnrollments();
+    } catch (error) {
+      console.error("Error cargando clases para admin:", error);
+    }
+    updateAdminTrialButtonState();
     return;
   }
 
@@ -1041,19 +1047,30 @@ function updatePublicButtons() {
 
 function updateScheduleButtonState() {
   const button = document.getElementById("btnSchedule");
-  if (!button) return;
-  if (!currentUser || currentUser.role !== "member") {
-    button.classList.remove("has-trial-scheduled");
-    return;
+  if (button) {
+    if (!currentUser || currentUser.role !== "member" || !isTrialUser(currentUser)) {
+      button.classList.remove("has-trial-scheduled");
+    } else {
+      const hasTrialScheduled = scheduleData.some(cls =>
+        cls.enrolled.some(enrolled => enrolled.name === currentUser.name)
+      );
+      button.classList.toggle("has-trial-scheduled", hasTrialScheduled);
+    }
   }
-  if (!isTrialUser(currentUser)) {
-    button.classList.remove("has-trial-scheduled");
+  updateAdminTrialButtonState();
+}
+
+function updateAdminTrialButtonState() {
+  const button = document.getElementById("btnAdminTrials");
+  if (!button) return;
+  if (!currentUser || currentUser.role !== "admin") {
+    button.classList.remove("has-trial-alert");
     return;
   }
   const hasTrialScheduled = scheduleData.some(cls =>
-    cls.enrolled.some(enrolled => enrolled.name === currentUser.name)
+    Array.isArray(cls.enrolled) && cls.enrolled.some(enrolled => enrolled.plan === "PRUEBA")
   );
-  button.classList.toggle("has-trial-scheduled", hasTrialScheduled);
+  button.classList.toggle("has-trial-alert", hasTrialScheduled);
 }
 
 function getUserWeeklyCount(user) {
@@ -1094,6 +1111,7 @@ function mostrarMenuUsuario() {
     btnAdminStudents.classList.add("hidden");
     btnAdminAddStudent.classList.add("hidden");
   }
+  updateAdminTrialButtonState();
 }
 
 function cerrarSesion() {
