@@ -24,7 +24,7 @@
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Open Sans', sans-serif; background-color: var(--background); color: #333; }
+        body { font-family: 'Open Sans', sans-serif; background-color: var(--background); color: #333; overflow-x: hidden; }
         h1, h2, h3 { font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase; }
         img { max-width: 100%; display: block; }
         button { font-family: inherit; }
@@ -41,10 +41,11 @@
             top: 0;
             z-index: 1000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            gap: 16px;
         }
 
         .logo-container { display: flex; align-items: center; gap: 15px; }
-        .logo-img { height: 64px; width: auto; object-fit: contain; }
+        .logo-img { height: 64px; width: auto; object-fit: contain; flex-shrink: 0; }
         .logo-text { font-size: 1.4rem; letter-spacing: 1px; line-height: 1; }
         .logo-text span { color: var(--primary); }
 
@@ -241,7 +242,7 @@
         /* --- Modals --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: var(--transition); }
         .modal-overlay.open { opacity: 1; visibility: visible; }
-        .modal { background: var(--white); width: 95%; max-width: 1000px; border-radius: var(--radius); padding: 0; position: relative; transform: translateY(20px); transition: var(--transition); max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
+        .modal { background: var(--white); width: 95%; max-width: 1000px; border-radius: var(--radius); padding: 0; position: relative; transform: translateY(20px); transition: var(--transition); max-height: calc(100vh - 40px); overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
         .modal-overlay.open .modal { transform: translateY(0); }
         .modal-header { background: var(--secondary); color: var(--white); padding: 1.2rem; display: flex; justify-content: space-between; align-items: center; }
         .modal-header h3 { margin: 0; font-size: 1.1rem; }
@@ -303,6 +304,15 @@
         .admin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .admin-table th, .admin-table td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
         .admin-table th { font-size: 0.8rem; text-transform: uppercase; color: #666; }
+        .admin-students-section { margin-bottom: 1.6rem; }
+        .admin-students-section h4 {
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--secondary);
+            margin-bottom: 0.75rem;
+        }
+        .admin-students-empty { color: #888; font-size: 0.85rem; margin-bottom: 0.5rem; }
         .admin-actions button {
             border: none;
             padding: 6px 8px;
@@ -310,6 +320,58 @@
             font-size: 0.75rem;
             cursor: pointer;
             margin-right: 4px;
+        }
+        .admin-students-filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .admin-students-filters button.is-active {
+            background: var(--primary);
+            color: var(--white);
+        }
+        .admin-inline {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .admin-inline input {
+            max-width: 80px;
+        }
+        .admin-helper {
+            display: block;
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 4px;
+        }
+        .admin-weekly-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .admin-day-card {
+            background: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .admin-day-card h4 { font-size: 0.9rem; margin-bottom: 8px; text-transform: uppercase; color: var(--secondary); }
+        .admin-class-item { background: #fff; border-left: 4px solid var(--primary); padding: 6px; margin-bottom: 8px; border-radius: 4px; font-size: 0.8rem; }
+        .admin-class-item strong { display: block; color: var(--secondary); }
+        .admin-class-item strong { display: block; color: var(--secondary); }
+        .admin-attendees { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+        .admin-attendee { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.8rem; }
+        .admin-attendee span { color: #444; }
+        .btn-trial-cancel { border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; }
+        .btn-trial-cancel:hover { opacity: 0.9; }
+        .admin-key-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(211, 47, 47, 0.1);
+            color: var(--primary-dark);
+            font-weight: 700;
+            font-size: 0.75rem;
         }
         .btn-paid { background: var(--success); color: white; }
         .btn-pending { background: var(--warning); color: #333; }
@@ -340,6 +402,7 @@
             bottom: 20px;
             background: var(--secondary);
             padding: 12px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
             border-radius: 12px;
             box-shadow: var(--shadow);
             display: flex;
@@ -356,7 +419,22 @@
             font-weight: 700;
             cursor: pointer;
         }
+        .user-menu button.has-trial-scheduled {
+            background: var(--accent);
+            color: var(--secondary);
+        }
+        .user-menu button.has-trial-alert {
+            background: var(--accent);
+            color: var(--secondary);
+            box-shadow: 0 0 0 2px rgba(255, 165, 2, 0.45), 0 0 12px rgba(255, 165, 2, 0.85);
+            animation: trial-glow 1.6s ease-in-out infinite;
+        }
         .user-menu button i { margin-right: 6px; }
+        @keyframes trial-glow {
+            0% { box-shadow: 0 0 0 2px rgba(255, 165, 2, 0.35), 0 0 8px rgba(255, 165, 2, 0.5); }
+            50% { box-shadow: 0 0 0 4px rgba(255, 165, 2, 0.55), 0 0 16px rgba(255, 165, 2, 0.95); }
+            100% { box-shadow: 0 0 0 2px rgba(255, 165, 2, 0.35), 0 0 8px rgba(255, 165, 2, 0.5); }
+        }
 
         /* --- Responsive --- */
         @media (max-width: 900px) {
@@ -373,6 +451,19 @@
             .hero { min-height: 50vh; }
             .btn-hero { width: 100%; justify-content: center; }
             .admin-table th, .admin-table td { font-size: 0.8rem; }
+            .timetable { min-width: 480px; }
+        }
+
+        @media (max-width: 480px) {
+            header { padding: 0.75rem 6%; }
+            .logo-container { flex-direction: column; gap: 8px; }
+            .logo-img { height: 52px; }
+            .logo-text { font-size: 1.1rem; }
+            .btn-login { width: 100%; }
+            .user-menu { flex-wrap: wrap; }
+            .user-menu button { flex: 1 1 45%; }
+            .modal-header h3 { font-size: 1rem; }
+            .modal-body { padding: 1.2rem; }
         }
     </style>
 </head>
@@ -387,7 +478,7 @@
             <div class="logo-text">ELEMENTAL <span>DOJO</span></div>
         </div>
 
-        <button class="btn-login" onclick="openLoginModal()">
+        <button class="btn-login" id="btn-login" onclick="openLoginModal()">
             <i class="fas fa-user-lock"></i> ACCESO
         </button>
     </header>
@@ -395,7 +486,7 @@
     <div class="hero">
         <h1>Reserva tu Clase</h1>
         <p>Gestiona tu asistencia semanal según tu plan y recibe recordatorios de pago.</p>
-        <button class="btn-hero" onclick="openTrialModal()">
+        <button class="btn-hero" id="btn-trial" onclick="openTrialModal()">
             <i class="fas fa-calendar-plus"></i> PRIMERA CLASE GRATIS
         </button>
     </div>
@@ -434,34 +525,6 @@
             </div>
         </section>
 
-        <section>
-            <div class="section-title">
-                <h2>Planes Semanales</h2>
-                <p>Elige un plan y reserva según tu límite semanal</p>
-            </div>
-            <div class="plan-grid">
-                <div class="plan-card">
-                    <h3>Plan 2x</h3>
-                    <span>2 clases por semana</span>
-                    <p>Ideal para quienes entrenan 2 veces por semana.</p>
-                </div>
-                <div class="plan-card">
-                    <h3>Plan 4x</h3>
-                    <span>4 clases por semana</span>
-                    <p>Para mantener un ritmo constante durante la semana.</p>
-                </div>
-                <div class="plan-card">
-                    <h3>Plan Full</h3>
-                    <span>6 clases por semana</span>
-                    <p>Acceso casi diario con prioridad en reservas.</p>
-                </div>
-                <div class="plan-card">
-                    <h3>Clase de prueba</h3>
-                    <span>1 clase</span>
-                    <p>Primera clase para conocer la experiencia Elemental.</p>
-                </div>
-            </div>
-        </section>
     </main>
 
     <!-- MODAL: CLASE DE PRUEBA -->
@@ -500,7 +563,7 @@
                     <div class="form-group">
                         <label>Clave</label>
                         <input type="password" class="form-control" id="access-code" required placeholder="Código">
-                        <small style="color:#888;">Miembros: 123321 | Admin: EDC2019 / EDC2057</small>
+                        <small style="color:#888;">Miembros: clave entregada </small>
                     </div>
                     <button class="btn-submit">ENTRAR</button>
                 </form>
@@ -522,6 +585,24 @@
                     Has agendado <span id="classes-count" class="limit-number">0</span> de <span id="max-classes" class="limit-number"></span> clases.
                 </div>
                 <div class="calendar-wrapper" id="calendar-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: MIS CLASES -->
+    <div class="modal-overlay" id="my-classes-modal">
+        <div class="modal" style="max-width:700px;">
+            <div class="modal-header">
+                <h3>Mis Clases</h3>
+                <button class="close-modal" onclick="closeModal('my-classes-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="my-classes-payment" class="payment-banner hidden"></div>
+                <div class="plan-limit-info">
+                    Tu plan es <strong id="my-plan-name"></strong>.
+                    Has agendado <span id="my-classes-count" class="limit-number">0</span> de <span id="my-classes-max" class="limit-number"></span> clases.
+                </div>
+                <div id="my-classes-list"></div>
             </div>
         </div>
     </div>
@@ -553,85 +634,114 @@
                     <p><strong>Plan:</strong> <span id="profile-plan">-</span></p>
                     <p><strong>Estado de pago:</strong> <span id="profile-payment">-</span></p>
                 </div>
+                <div class="info-card" style="margin-top:15px;">
+                    <h3><i class="fas fa-key"></i> Cambiar clave de acceso</h3>
+                    <p><strong>Clave actual:</strong> <span id="profile-access-code">-</span></p>
+                    <form id="form-update-access-code" onsubmit="actualizarClaveAcceso(event)">
+                        <div class="form-group">
+                            <label>Nueva clave</label>
+                            <input type="password" class="form-control" id="new-access-code" placeholder="Nueva clave" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Confirmar clave</label>
+                            <input type="password" class="form-control" id="confirm-access-code" placeholder="Repite la clave" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Actualizar clave</button>
+                    </form>
+                    <p class="muted" style="margin-top:10px;">Usa una clave única para evitar conflictos si hay otros alumnos con el mismo nombre.</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: PANEL ADMIN -->
-    <div class="modal-overlay" id="admin-modal">
-        <div class="modal">
+    <!-- MODAL: ADMIN - CLASES AGENDADAS -->
+    <div class="modal-overlay" id="admin-trial-modal">
+        <div class="modal" style="max-width:700px;">
             <div class="modal-header">
-                <h3>Panel de Administración</h3>
-                <button class="close-modal" onclick="closeModal('admin-modal')">&times;</button>
+                <h3>Clases Agendadas (Prueba)</h3>
+                <button class="close-modal" onclick="closeModal('admin-trial-modal')">&times;</button>
             </div>
             <div class="modal-body admin-panel">
-                <div class="admin-grid">
-                    <div class="admin-card">
-                        <h3>Resumen General</h3>
-                        <p>Total alumnos: <b id="total-alumnos">0</b></p>
-                        <p>Pagos pendientes: <b id="total-pendiente">0</b></p>
-                        <p>Pagos vencidos: <b id="total-vencido">0</b></p>
-                        <ul id="disciplinas-count"></ul>
-                    </div>
-
-                    <div class="admin-card">
-                        <h3>Clases Agendadas</h3>
-                        <div id="admin-classes-list">
-                            <p class="muted">Cargando clases...</p>
-                        </div>
+                <div>
+                    <h4 style="margin-bottom:10px;">Solicitudes de prueba</h4>
+                    <div id="admin-trial-list">
+                        <p class="muted">Cargando solicitudes...</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    <!-- MODAL: ADMIN - SEMANA -->
+    <div class="modal-overlay" id="admin-weekly-plan-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Plan Semanal por Disciplina</h3>
+                <button class="close-modal" onclick="closeModal('admin-weekly-plan-modal')">&times;</button>
+            </div>
+            <div class="modal-body admin-panel">
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+                    <button class="btn-login" onclick="setAdminWeekDiscipline('Jiu Jitsu')">Jiu-Jitsu</button>
+                    <button class="btn-login" onclick="setAdminWeekDiscipline('Judo')">Judo</button>
+                    <button class="btn-login" onclick="setAdminWeekDiscipline('Kick Boxing')">Kickboxing</button>
+                </div>
+                <div id="admin-weekly-plan">
+                    <p class="muted">Cargando itinerario...</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                <div class="admin-card" style="margin-top:1.5rem;">
-                    <h3>Estado de Alumnos</h3>
-                    <div style="overflow-x:auto;">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Disciplina</th>
-                                    <th>Plan</th>
-                                    <th>Clases Semana</th>
-                                    <th>Estado Pago</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-alumnos-table"></tbody>
-                        </table>
+    <!-- MODAL: ADMIN - ALUMNOS INSCRITOS -->
+    <div class="modal-overlay" id="admin-students-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Alumnos Inscritos</h3>
+                <button class="close-modal" onclick="closeModal('admin-students-modal')">&times;</button>
+            </div>
+            <div class="modal-body admin-panel">
+                <div class="admin-students-filters">
+                    <button class="btn-login" data-filter="Jiu Jitsu" data-label="Jiu-Jitsu" onclick="setAdminStudentsFilter('Jiu Jitsu')">Jiu-Jitsu</button>
+                    <button class="btn-login" data-filter="Judo" data-label="Judo" onclick="setAdminStudentsFilter('Judo')">Judo</button>
+                    <button class="btn-login" data-filter="Kick Boxing" data-label="Kickboxing" onclick="setAdminStudentsFilter('Kick Boxing')">Kickboxing</button>
+                </div>
+                <div style="overflow-x:auto;">
+                    <div id="admin-alumnos-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADMIN - AGREGAR ALUMNO -->
+    <div class="modal-overlay" id="admin-add-student-modal">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <h3>Agregar Alumno</h3>
+                <button class="close-modal" onclick="closeModal('admin-add-student-modal')">&times;</button>
+            </div>
+            <div class="modal-body admin-panel">
+                <form id="form-new-alumno">
+                    <div class="form-group"><input type="text" id="new-nombre" class="form-control" placeholder="Nombre completo" required></div>
+                    <div class="form-group"><input type="tel" id="new-telefono" class="form-control" placeholder="Teléfono" required></div>
+                    <div class="form-group"><input type="email" id="new-email" class="form-control" placeholder="Email"></div>
+                    <div class="form-group">
+                        <select id="new-disciplina" class="form-control" required>
+                            <option value="">Disciplina</option>
+                            <option value="Jiu Jitsu">Jiu Jitsu</option>
+                            <option value="Jiu Jitsu Kid">Jiu Jitsu Kid</option>
+                            <option value="Judo">Judo</option>
+                            <option value="Kick Boxing">Kick Boxing</option>
+                        </select>
                     </div>
-                </div>
+                    <div class="form-group">
+                        <select id="new-plan" class="form-control" required>
+                            <option value="">Seleccionar plan</option>
+                            <option value="PRUEBA">Clase de prueba</option>
+                        </select>
+                    </div>
 
-                <div class="admin-card" style="margin-top:1.5rem;">
-                    <h3>Registrar Nuevo Alumno</h3>
-                    <form id="form-new-alumno">
-                        <div class="form-group"><input type="text" id="new-nombre" class="form-control" placeholder="Nombre completo" required></div>
-                        <div class="form-group"><input type="tel" id="new-telefono" class="form-control" placeholder="Teléfono" required></div>
-                        <div class="form-group"><input type="email" id="new-email" class="form-control" placeholder="Email"></div>
-
-                        <div class="form-group">
-                            <select id="new-plan" class="form-control" required>
-                                <option value="">Seleccionar plan</option>
-                                <option value="2x">Plan 2x</option>
-                                <option value="4x">Plan 4x</option>
-                                <option value="FULL">Plan Full</option>
-                                <option value="PRUEBA">Clase de prueba</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <select id="new-disciplina" class="form-control" required>
-                                <option value="">Disciplina</option>
-                                <option value="Jiu Jitsu">Jiu Jitsu</option>
-                                <option value="Jiu Jitsu Kid">Jiu Jitsu Kid</option>
-                                <option value="Judo">Judo</option>
-                                <option value="Kick Boxing">Kick Boxing</option>
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn-submit">Registrar Alumno</button>
-                    </form>
-                    <p id="new-alumno-result" class="muted"></p>
-                </div>
+                    <button type="submit" class="btn-submit">Registrar Alumno</button>
+                </form>
+                <p id="new-alumno-result" class="muted"></p>
             </div>
         </div>
     </div>
@@ -667,588 +777,18 @@
     <div id="toast" class="toast">Mensaje</div>
 
     <div id="user-menu" class="user-menu hidden">
-        <button onclick="abrirCalendario()"><i class="fas fa-calendar"></i> Mis Clases</button>
-        <button onclick="abrirEstadoPago()"><i class="fas fa-credit-card"></i> Estado de Pago</button>
-        <button onclick="abrirPerfil()"><i class="fas fa-user"></i> Mi Perfil</button>
-        <button id="btnAdminPanel" class="hidden" onclick="abrirPanelAdmin()"><i class="fas fa-gear"></i> Admin</button>
+        <button id="btnMyClasses" onclick="abrirMisClases()"><i class="fas fa-book"></i> Clases</button>
+        <button id="btnSchedule" onclick="abrirCalendario()"><i class="fas fa-calendar-plus"></i> Agendar</button>
+        <button id="btnPaymentStatus" onclick="abrirEstadoPago()"><i class="fas fa-credit-card"></i> Estado de Pago</button>
+        <button id="btnProfile" onclick="abrirPerfil()"><i class="fas fa-user"></i> Mi Perfil</button>
+        <button id="btnAdminTrials" class="hidden" onclick="abrirClasesAgendadasAdmin()"><i class="fas fa-clipboard-check"></i> Clases agendadas</button>
+        <button id="btnAdminWeek" class="hidden" onclick="abrirClasesSemanaAdmin()"><i class="fas fa-calendar-week"></i> Semana</button>
+        <button id="btnAdminStudents" class="hidden" onclick="abrirAlumnosInscritosAdmin()"><i class="fas fa-users"></i> Alumnos inscritos</button>
+        <button id="btnAdminAddStudent" class="hidden" onclick="abrirAgregarAlumnoAdmin()"><i class="fas fa-user-plus"></i> Agregar alumnos</button>
         <button onclick="cerrarSesion()"><i class="fas fa-arrow-right-from-bracket"></i> Salir</button>
     </div>
 
-    <script>
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzHj0JGyuEWjI7B9KiLVQRTzNe4avfTEYK6GShiLkngSYUmpXXgCVe0fHKNhulFIqTyw/exec';
+    <script type="module" src="app.js"></script>
 
-        const ADMIN_USER = 'EDC2019';
-        const ADMIN_CODE = 'EDC2057';
-
-        const scheduleData = [
-            { id: 1, day: 'Lunes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 2, day: 'Lunes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 3, day: 'Lunes', time: '19:00', class: 'Judo', instructor: 'Sensei Pablo R', capacity: 25, enrolled: [] },
-            { id: 4, day: 'Lunes', time: '21:00', class: 'Kick Boxing', instructor: 'Coach Anibal R', capacity: 25, enrolled: [] },
-            { id: 5, day: 'Martes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 6, day: 'Martes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 7, day: 'Miércoles', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 8, day: 'Miércoles', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 9, day: 'Miércoles', time: '21:00', class: 'Kick Boxing', instructor: 'Coach Anibal R', capacity: 25, enrolled: [] },
-            { id: 10, day: 'Jueves', time: '19:00', class: 'Judo', instructor: 'Sensei Pablo R', capacity: 25, enrolled: [] },
-            { id: 11, day: 'Jueves', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 12, day: 'Jueves', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 13, day: 'Jueves', time: '21:00', class: 'Kick Boxing', instructor: 'Coach Anibal R', capacity: 25, enrolled: [] },
-            { id: 14, day: 'Viernes', time: '18:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 15, day: 'Viernes', time: '20:15', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] },
-            { id: 16, day: 'Sabado', time: '10:30', class: 'Jiu Jitsu Kid', instructor: 'Prof. Sebastian B', capacity: 25, enrolled: [] },
-            { id: 17, day: 'Sabado', time: '11:30', class: 'Jiu Jitsu', instructor: 'Prof. Carlos G', capacity: 25, enrolled: [] }
-        ];
-
-        const classesData = [
-            {
-                id: 1,
-                name: "Jiu Jitsu",
-                img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
-                instructor: "Prof. Carlos G"
-            },
-            {
-                id: 2,
-                name: "Jiu Jitsu Kid",
-                img: "https://drive.google.com/thumbnail?id=17klKk3vtmDp2x-RL5e7Q-VCSSA0NQdxh&sz=w1000",
-                instructor: "Prof. Sebastian B"
-            },
-            {
-                id: 3,
-                name: "Kick Boxing",
-                img: "https://drive.google.com/thumbnail?id=1FZThhq5kM1-CmAi4xlNUY-nrmPD5tzYW&sz=w1000",
-                instructor: "Coach Anibal R"
-            },
-            {
-                id: 4,
-                name: "Judo",
-                img: "https://drive.google.com/thumbnail?id=1Ls9eUpCTpi_B7EEyDi9q1DjefUryWWZO&sz=w1000",
-                instructor: "Sensei Pablo R"
-            }
-        ];
-
-        const PLAN_CONFIG = {
-            "2x": { label: "Plan 2x", weeklyLimit: 2 },
-            "4x": { label: "Plan 4x", weeklyLimit: 4 },
-            "FULL": { label: "Plan Full", weeklyLimit: 6 },
-            "PRUEBA": { label: "Clase de prueba", weeklyLimit: 1 }
-        };
-
-        const DEFAULT_STUDENTS = [
-            { id: "s1", name: "Camila Soto", discipline: "Jiu Jitsu", plan: "FULL", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-10" },
-            { id: "s2", name: "Ignacio Díaz", discipline: "Kick Boxing", plan: "4x", paymentStatus: "pendiente", phone: "", email: "", paymentDue: "2024-09-05" },
-            { id: "s3", name: "Valentina Ríos", discipline: "Judo", plan: "2x", paymentStatus: "vencido", phone: "", email: "", paymentDue: "2024-08-28" },
-            { id: "s4", name: "Sebastián Rojas", discipline: "Jiu Jitsu Kid", plan: "PRUEBA", paymentStatus: "pagado", phone: "", email: "", paymentDue: "2024-09-01" }
-        ];
-
-        const STORAGE_KEYS = {
-            students: "edc_students",
-            enrollments: "edc_enrollments"
-        };
-
-        let currentUser = null;
-        let isAdmin = false;
-
-        function openModal(id) { document.getElementById(id).classList.add('open'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.innerText = msg;
-            t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 3000);
-        }
-
-        function openTrialModal() { openModal('trial-modal'); }
-        function openLoginModal() { openModal('login-modal'); }
-
-        function loadStudents() {
-            const stored = localStorage.getItem(STORAGE_KEYS.students);
-            if (!stored) {
-                localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(DEFAULT_STUDENTS));
-                return [...DEFAULT_STUDENTS];
-            }
-            return JSON.parse(stored);
-        }
-
-        function saveStudents(students) {
-            localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(students));
-        }
-
-        function getWeekKey(date = new Date()) {
-            const temp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-            const dayNum = temp.getUTCDay() || 7;
-            temp.setUTCDate(temp.getUTCDate() + 4 - dayNum);
-            const yearStart = new Date(Date.UTC(temp.getUTCFullYear(), 0, 1));
-            const weekNum = Math.ceil((((temp - yearStart) / 86400000) + 1) / 7);
-            return `${temp.getUTCFullYear()}-W${weekNum}`;
-        }
-
-        function loadEnrollments() {
-            const stored = localStorage.getItem(STORAGE_KEYS.enrollments);
-            return stored ? JSON.parse(stored) : {};
-        }
-
-        function saveEnrollments(data) {
-            localStorage.setItem(STORAGE_KEYS.enrollments, JSON.stringify(data));
-        }
-
-        function getCurrentWeekEnrollments() {
-            const all = loadEnrollments();
-            const weekKey = getWeekKey();
-            return all[weekKey] || {};
-        }
-
-        function setCurrentWeekEnrollments(currentWeek) {
-            const all = loadEnrollments();
-            const weekKey = getWeekKey();
-            all[weekKey] = currentWeek;
-            saveEnrollments(all);
-        }
-
-        function hydrateScheduleEnrollments() {
-            const weekEnrollments = getCurrentWeekEnrollments();
-            scheduleData.forEach(cls => {
-                cls.enrolled = weekEnrollments[cls.id] || [];
-            });
-        }
-
-        function renderCards() {
-            const container = document.getElementById('classes-grid');
-            container.innerHTML = '';
-            classesData.forEach(cls => {
-                container.innerHTML += `
-                    <div class="class-card" onclick="openPublicSchedule('${cls.name}')">
-                        <div class="card-img" style="background-image: url('${cls.img}')">
-                            <div class="card-overlay"><h3 class="card-title">${cls.name}</h3></div>
-                        </div>
-                        <div class="card-content">
-                            <div style="color:#555; font-weight:600;">Profesor: ${cls.instructor}</div>
-                            <div class="click-hint">Ver Horarios <i class="fas fa-chevron-down"></i></div>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        function openPublicSchedule(disciplineName) {
-            const tbody = document.getElementById('public-schedule-table');
-            document.getElementById('public-schedule-title').innerText = `Horarios: ${disciplineName}`;
-            tbody.innerHTML = '';
-
-            const filteredSchedule = scheduleData.filter(s => s.class === disciplineName);
-            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sabado'];
-
-            const times = [...new Set(filteredSchedule.map(s => s.time))].sort();
-
-            let headerRow = '<tr><th>Hora</th>';
-            days.forEach(d => headerRow += `<th>${d}</th>`);
-            headerRow += '</tr>';
-            tbody.innerHTML = headerRow;
-
-            times.forEach(time => {
-                let row = `<tr><td><span class="tt-time">${time}</span></td>`;
-                days.forEach(day => {
-                    const cls = filteredSchedule.find(s => s.day === day && s.time === time);
-                    if (cls) {
-                        const spots = cls.capacity - cls.enrolled.length;
-                        row += `
-                            <td>
-                                <span class="tt-header">${cls.class}</span>
-                                <span class="tt-prof">${cls.instructor}</span>
-                                <span class="tt-spots">${spots} cupos</span>
-                            </td>
-                        `;
-                    } else {
-                        row += `<td>-</td>`;
-                    }
-                });
-                row += '</tr>';
-                tbody.innerHTML += row;
-            });
-
-            openModal('public-schedule-modal');
-        }
-
-        function submitTrial(e) {
-            e.preventDefault();
-            const btn = document.getElementById('btn-submit-trial');
-            const originalText = btn.innerText;
-
-            btn.innerText = "ENVIANDO...";
-            btn.disabled = true;
-
-            const data = {
-                nombre: document.getElementById('t-name').value,
-                disciplina: document.getElementById('t-disc').value,
-                telefono: document.getElementById('t-phone').value,
-                email: document.getElementById('t-email').value,
-            };
-
-            fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify(data)
-            })
-                .then(response => response.text())
-                .then(text => {
-                    try {
-                        const res = JSON.parse(text);
-                        if (res.result === "success") {
-                            showToast("Solicitud enviada correctamente");
-                            closeModal('trial-modal');
-                            document.querySelector('#trial-modal form').reset();
-                        } else {
-                            showToast("Error: " + (res.message || "Desconocido"));
-                        }
-                    } catch (e) {
-                        showToast("Datos guardados (Respuesta no JSON)");
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast("Error de conexión");
-                })
-                .finally(() => {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                });
-        }
-
-        function getStudentByName(name) {
-            const students = loadStudents();
-            return students.find(student => student.name.toLowerCase() === name.toLowerCase());
-        }
-
-        function handleLogin(e) {
-            e.preventDefault();
-            const name = document.getElementById('user-name').value.trim();
-            const code = document.getElementById('access-code').value.trim();
-
-            if (name === ADMIN_USER && code === ADMIN_CODE) {
-                isAdmin = true;
-                currentUser = { name: 'Administrador', role: 'admin' };
-                mostrarMenuUsuario();
-                closeModal('login-modal');
-                showToast('Bienvenido, admin');
-                return;
-            }
-
-            if (code === ADMIN_CODE || name === ADMIN_USER) {
-                showToast('Credenciales de administrador incorrectas');
-                return;
-            }
-
-            if (code !== '123321') {
-                showToast('Clave incorrecta');
-                return;
-            }
-
-            const student = getStudentByName(name);
-            if (!student) {
-                showToast('Alumno no encontrado. Verifica el nombre.');
-                return;
-            }
-
-            isAdmin = false;
-            currentUser = { ...student, role: 'member' };
-            mostrarMenuUsuario();
-            closeModal('login-modal');
-            abrirCalendario();
-        }
-
-        function mostrarMenuUsuario() {
-            const menu = document.getElementById('user-menu');
-            menu.classList.remove('hidden');
-
-            const btnAdmin = document.getElementById('btnAdminPanel');
-            if (currentUser.role === 'admin') {
-                btnAdmin.classList.remove('hidden');
-            } else {
-                btnAdmin.classList.add('hidden');
-            }
-        }
-
-        function cerrarSesion() {
-            currentUser = null;
-            isAdmin = false;
-            document.getElementById('user-menu').classList.add('hidden');
-            showToast('Sesión cerrada');
-        }
-
-        function abrirCalendario() {
-            document.getElementById('calendar-title').innerText =
-                currentUser.role === 'admin'
-                    ? 'Calendario General'
-                    : `Mi Calendario: ${currentUser.discipline}`;
-
-            renderCalendar();
-            openModal('calendar-modal');
-        }
-
-        function abrirEstadoPago() {
-            cargarEstadoPagoUsuario();
-            openModal('payment-modal');
-        }
-
-        function abrirPerfil() {
-            document.getElementById('profile-name').innerText = currentUser.name;
-            document.getElementById('profile-plan').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
-            document.getElementById('profile-discipline').innerText = currentUser.discipline || '-';
-            document.getElementById('profile-payment').innerText = currentUser.paymentStatus || '-';
-            openModal('profile-modal');
-        }
-
-        function abrirPanelAdmin() {
-            cargarResumenAdmin();
-            cargarClasesAdmin();
-            cargarAlumnosAdmin();
-            openModal('admin-modal');
-        }
-
-        function cargarEstadoPagoUsuario() {
-            const card = document.getElementById('payment-status-card');
-            if (!currentUser || currentUser.role !== 'member') {
-                card.innerHTML = '<p class="muted">Solo disponible para alumnos.</p>';
-                return;
-            }
-
-            const status = currentUser.paymentStatus;
-            const statusText = status === 'pagado' ? 'Pagado' : status === 'pendiente' ? 'Pendiente' : 'Vencido';
-            const statusClass = status === 'pagado' ? 'status-paid' : status === 'pendiente' ? 'status-pending' : 'status-overdue';
-
-            card.innerHTML = `
-                <h3>Estado actual</h3>
-                <p><span class="status-pill ${statusClass}">${statusText}</span></p>
-                <p><strong>Próximo pago:</strong> ${currentUser.paymentDue || 'Por definir'}</p>
-                <p>${status === 'pendiente' ? 'Recuerda regularizar tu pago durante esta semana.' : status === 'vencido' ? 'Tu pago está vencido. Debes regularizar para volver a reservar.' : '¡Gracias por mantener tu pago al día!'}</p>
-            `;
-        }
-
-        function renderCalendar() {
-            hydrateScheduleEnrollments();
-            const grid = document.getElementById('calendar-grid');
-            const paymentBanner = document.getElementById('payment-banner');
-            const limitInfo = document.getElementById('limit-info');
-            grid.innerHTML = '';
-
-            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-
-            let userCount = 0;
-            let planLimit = 0;
-
-            if (!isAdmin && currentUser) {
-                userCount = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name)).length;
-                planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
-
-                document.getElementById('classes-count').innerText = userCount;
-                document.getElementById('max-classes').innerText = planLimit;
-                document.getElementById('plan-name-display').innerText = PLAN_CONFIG[currentUser.plan]?.label || currentUser.plan;
-
-                limitInfo.classList.remove('hidden');
-
-                if (currentUser.paymentStatus === 'pendiente') {
-                    paymentBanner.classList.remove('hidden');
-                    paymentBanner.classList.remove('is-overdue');
-                    paymentBanner.innerText = 'Recuerda regularizar tu pago pendiente para evitar bloqueos de reserva.';
-                } else if (currentUser.paymentStatus === 'vencido') {
-                    paymentBanner.classList.remove('hidden');
-                    paymentBanner.classList.add('is-overdue');
-                    paymentBanner.innerText = 'Pago vencido: no podrás reservar hasta que el administrador confirme el pago.';
-                } else {
-                    paymentBanner.classList.add('hidden');
-                }
-            } else {
-                limitInfo.classList.add('hidden');
-                paymentBanner.classList.add('hidden');
-            }
-
-            days.forEach(day => {
-                let columnHTML = `<div class="day-column"><div class="day-header">${day}</div>`;
-                const dayClasses = scheduleData.filter(s => s.day === day);
-                const relevantClasses = isAdmin ? dayClasses : dayClasses.filter(c => c.class === currentUser.discipline);
-
-                relevantClasses.forEach(c => {
-                    const isEnrolled = currentUser && c.enrolled.some(u => u.name === currentUser.name);
-                    const isFull = c.enrolled.length >= c.capacity;
-                    let btnClass = 'cal-btn reserve';
-                    let btnText = 'RESERVAR';
-                    let btnState = '';
-                    let canReserve = true;
-
-                    if (isAdmin) {
-                        canReserve = false;
-                    } else if (currentUser.paymentStatus === 'vencido') {
-                        btnText = 'PAGO VENCIDO';
-                        btnClass = 'cal-btn disabled';
-                        canReserve = false;
-                    } else if (isEnrolled) {
-                        btnText = 'CANCELAR';
-                        btnClass = 'cal-btn cancel';
-                    } else if (isFull) {
-                        btnText = 'LLENO';
-                        btnClass = 'cal-btn disabled';
-                        canReserve = false;
-                    } else if (userCount >= planLimit) {
-                        btnText = 'LÍMITE ALCANZADO';
-                        btnClass = 'cal-btn disabled';
-                        canReserve = false;
-                    }
-
-                    if (!canReserve) btnState = 'disabled';
-
-                    let namesList = c.enrolled.map(u => u.name).join(', ');
-                    if (!namesList) namesList = 'Vacío';
-
-                    columnHTML += `
-                        <div class="cal-card">
-                            <div class="cal-time">${c.time}</div>
-                            <div class="cal-class">${c.class}</div>
-                            <div class="cal-attendees">${namesList}</div>
-                            ${!isAdmin ? `<button class="${btnClass}" ${btnState} onclick="toggleReservation(${c.id})">${btnText}</button>` : ''}
-                        </div>
-                    `;
-                });
-                if (relevantClasses.length === 0) columnHTML += `<div style="color:#ccc; font-size:0.8rem; text-align:center; padding:10px;">-</div>`;
-                columnHTML += `</div>`;
-                grid.innerHTML += columnHTML;
-            });
-        }
-
-        function toggleReservation(classId) {
-            const cls = scheduleData.find(c => c.id === classId);
-            const planLimit = PLAN_CONFIG[currentUser.plan]?.weeklyLimit || 0;
-            const currentCount = scheduleData.filter(c => c.enrolled.some(u => u.name === currentUser.name)).length;
-
-            if (currentUser.paymentStatus === 'vencido') {
-                showToast('No puedes reservar con pago vencido.');
-                return;
-            }
-
-            if (cls.enrolled.some(u => u.name === currentUser.name)) {
-                cls.enrolled = cls.enrolled.filter(u => u.name !== currentUser.name);
-                showToast(`Cancelaste tu asistencia a ${cls.class}`);
-            } else {
-                if (currentCount >= planLimit) {
-                    showToast(`¡Límite alcanzado! Tu plan permite ${planLimit} clases por semana.`);
-                    return;
-                }
-                if (cls.enrolled.length >= cls.capacity) {
-                    showToast('La clase está llena.');
-                    return;
-                }
-                cls.enrolled.push({ name: currentUser.name, plan: currentUser.plan });
-                showToast(`¡Reservado para ${cls.class}!`);
-            }
-
-            const currentWeek = getCurrentWeekEnrollments();
-            currentWeek[cls.id] = cls.enrolled;
-            setCurrentWeekEnrollments(currentWeek);
-            renderCalendar();
-        }
-
-        function cargarResumenAdmin() {
-            const students = loadStudents();
-            document.getElementById('total-alumnos').innerText = students.length;
-            document.getElementById('total-pendiente').innerText = students.filter(s => s.paymentStatus === 'pendiente').length;
-            document.getElementById('total-vencido').innerText = students.filter(s => s.paymentStatus === 'vencido').length;
-
-            const counts = students.reduce((acc, s) => {
-                acc[s.discipline] = (acc[s.discipline] || 0) + 1;
-                return acc;
-            }, {});
-
-            const list = document.getElementById('disciplinas-count');
-            list.innerHTML = '';
-            Object.entries(counts).forEach(([disc, count]) => {
-                const li = document.createElement('li');
-                li.innerText = `${disc}: ${count}`;
-                list.appendChild(li);
-            });
-        }
-
-        function cargarClasesAdmin() {
-            hydrateScheduleEnrollments();
-            const container = document.getElementById('admin-classes-list');
-            container.innerHTML = '';
-            scheduleData.forEach(cls => {
-                const item = document.createElement('div');
-                item.style.marginBottom = '10px';
-                item.innerHTML = `
-                    <strong>${cls.day} ${cls.time}</strong> - ${cls.class}
-                    <div class="muted">${cls.enrolled.length}/${cls.capacity} alumnos: ${cls.enrolled.map(u => u.name).join(', ') || 'Sin alumnos'}</div>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        function cargarAlumnosAdmin() {
-            const students = loadStudents();
-            const enrollments = getCurrentWeekEnrollments();
-            const tbody = document.getElementById('admin-alumnos-table');
-            tbody.innerHTML = '';
-
-            students.forEach(student => {
-                const classCount = Object.values(enrollments).filter(list =>
-                    list.some(enrolled => enrolled.name === student.name)
-                ).length;
-
-                const statusClass = student.paymentStatus === 'pagado' ? 'status-paid' : student.paymentStatus === 'pendiente' ? 'status-pending' : 'status-overdue';
-                const statusText = student.paymentStatus === 'pagado' ? 'Pagado' : student.paymentStatus === 'pendiente' ? 'Pendiente' : 'Vencido';
-
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${student.name}</td>
-                    <td>${student.discipline}</td>
-                    <td>${PLAN_CONFIG[student.plan]?.label || student.plan}</td>
-                    <td>${classCount}</td>
-                    <td><span class="status-pill ${statusClass}">${statusText}</span></td>
-                    <td class="admin-actions">
-                        <button class="btn-paid" onclick="actualizarPago('${student.id}', 'pagado')">Pagado</button>
-                        <button class="btn-pending" onclick="actualizarPago('${student.id}', 'pendiente')">Pendiente</button>
-                        <button class="btn-overdue" onclick="actualizarPago('${student.id}', 'vencido')">Vencido</button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        function actualizarPago(studentId, status) {
-            const students = loadStudents();
-            const updated = students.map(student =>
-                student.id === studentId ? { ...student, paymentStatus: status } : student
-            );
-            saveStudents(updated);
-            if (currentUser && currentUser.id === studentId) {
-                currentUser.paymentStatus = status;
-            }
-            cargarResumenAdmin();
-            cargarAlumnosAdmin();
-            showToast('Estado de pago actualizado');
-        }
-
-        document.getElementById('form-new-alumno').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const students = loadStudents();
-            const newStudent = {
-                id: `s${Date.now()}`,
-                name: document.getElementById('new-nombre').value.trim(),
-                discipline: document.getElementById('new-disciplina').value,
-                plan: document.getElementById('new-plan').value,
-                paymentStatus: 'pendiente',
-                phone: document.getElementById('new-telefono').value.trim(),
-                email: document.getElementById('new-email').value.trim(),
-                paymentDue: new Date().toISOString().split('T')[0]
-            };
-
-            students.push(newStudent);
-            saveStudents(students);
-            document.getElementById('new-alumno-result').innerText = `Alumno ${newStudent.name} registrado.`;
-            document.getElementById('form-new-alumno').reset();
-            cargarResumenAdmin();
-            cargarAlumnosAdmin();
-        });
-
-        hydrateScheduleEnrollments();
-        renderCards();
-    </script>
 </body>
 </html>
